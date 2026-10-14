@@ -1,0 +1,7 @@
+# Los scripts deben tener finales de linea Unix (LF) para funcionar en ArkOS
+*.sh text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.png binary
+*.otf binary
