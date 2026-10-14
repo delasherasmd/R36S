@@ -73,6 +73,11 @@ class InputTest(unittest.TestCase):
         acts = inp.handle(Ev(sdl.SDL_JOYAXISMOTION, 7, 1, value=30000), 0)
         self.assertEqual(acts, ["down"])
 
+    def test_swap_ab_like_emulationstation(self):
+        inp = inputmap.Input([self.path], swap_ab=True)
+        inp.joys[1] = (None, inp._binding_for("GO-Super Gamepad", "abc"))
+        self.assertEqual(inp.handle(Ev(sdl.SDL_JOYBUTTONDOWN, 1, 1), 0), ["b"])
+
     def test_known_default_for_r36s(self):
         b = inputmap._default_binding("GO-Super Gamepad")
         self.assertEqual(b.buttons[13], "start")

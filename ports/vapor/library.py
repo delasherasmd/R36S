@@ -174,9 +174,62 @@ def _text(node, tag):
     return ch.text.strip()
 
 
+# '&' que no forma parte de una entidad XML valida (p. ej. el "2>&1" que ArkOS
+# pone en el comando del menu de Opciones)
+_BARE_AMP = re.compile(r"&(?!(?:[A-Za-z][A-Za-z0-9]*|#[0-9]+|#x[0-9A-Fa-f]+);)")
+_TAG_RE = re.compile(r"<(\w+)(?:\s[^>]*)?>(.*?)</\1\s*>", re.S)
+_ATTR_RE = re.compile(r'(\w+)\s*=\s*"([^"]*)"')
+
+
+def parse_xml_lenient(path):
+    """Lee un XML con la misma tolerancia que pugixml (el lector de EmulationStation).
+
+    1) XML estricto; 2) escapando los '&' sueltos; 3) si aun falla, se reconstruye
+    el arbol con expresiones regulares (sirve para es_systems.cfg y es_input.cfg).
+    Lanza IOError/OSError si el fichero no se puede leer."""
+    with open(path, "rb") as f:
+        data = f.read()
+    try:
+        return ET.fromstring(data)
+    except ET.ParseError:
+        pass
+    text = data.decode("utf-8", "replace")
+    text = re.sub(r"^\s*<\?xml[^>]*\?>", "", text)
+    try:
+        return ET.fromstring(_BARE_AMP.sub("&amp;", text).encode("utf-8"))
+    except ET.ParseError:
+        pass
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    return _regex_tree(text)
+
+
+def _regex_tree(text):
+    """Arbol minimo a partir de etiquetas con expresiones regulares."""
+    root = ET.Element("root")
+
+    def fill(parent, body, depth):
+        for m in _TAG_RE.finditer(body):
+            tag, inner = m.group(1), m.group(2)
+            el = ET.SubElement(parent, tag)
+            head = body[m.start():body.index(">", m.start()) + 1]
+            for k, v in _ATTR_RE.findall(head):
+                el.set(k, _unescape(v))
+            if depth < 6 and "<" in inner:
+                fill(el, inner, depth + 1)
+            if not len(el):
+                el.text = _unescape(inner)
+        # etiquetas sin cierre: <input name="a" type="button" id="1" value="1"/>
+        for m in re.finditer(r"<(\w+)(\s[^<>]*?)/>", body):
+            el = ET.SubElement(parent, m.group(1))
+            for k, v in _ATTR_RE.findall(m.group(2)):
+                el.set(k, _unescape(v))
+
+    fill(root, text, 0)
+    return root
+
+
 def load_es_systems(path, home):
-    tree = ET.parse(path)
-    root = tree.getroot()
+    root = parse_xml_lenient(path)
     systems = []
     for i, sn in enumerate(root.iter("system")):
         s = System()
@@ -411,6 +464,8 @@ class Library(object):
         self.by_path = {}
         self.settings = {}
         self.errors = []
+        self.cfg_used = ""
+        self.report = []  # (sistema, carpeta, n juegos o motivo) para el log
         self.mame = MameNames(self.home)
 
     # ------------------------------------------------------------------
@@ -432,13 +487,17 @@ class Library(object):
 
     # ------------------------------------------------------------------
     def load(self, progress=None, use_cache=True):
+        self.errors = []
         self.settings = load_es_settings(self.settings_path())
         cfg = self.systems_cfg_path()
         try:
             systems = load_es_systems(cfg, self.home)
         except (ET.ParseError, IOError, OSError) as e:
-            self.errors.append("es_systems.cfg: %s" % e)
+            self.errors.append("%s: %s" % (cfg, e))
             systems = []
+        self.cfg_used = cfg
+        if not systems and not self.errors:
+            self.errors.append("%s: 0 sistemas" % cfg)
         hidden = set(x for x in self.settings.get("HiddenSystems", "").split(";") if x)
         cache = self._load_cache() if use_cache else {}
         new_cache = {}
@@ -449,6 +508,7 @@ class Library(object):
         show_hidden = self.settings.get("ShowHiddenFiles", "false") == "true"
         scan_ports = self.settings.get("ScanPorts", "false") == "true"
         total = len(systems)
+        self.report = []
         for i, s in enumerate(systems):
             if progress:
                 progress(i, total, s.fullname)
@@ -456,6 +516,7 @@ class Library(object):
             if s.name == "retropie" or s.path.startswith("/opt/system") or s.name in hidden:
                 continue
             if not os.path.isdir(s.path):
+                self.report.append((s.name, s.path, "no existe la carpeta"))
                 continue
             files = self._scan(s, show_hidden, scan_ports)
             meta = self._gamelist(s, cache, new_cache)
@@ -478,6 +539,7 @@ class Library(object):
                 g.sortname = sort_key(g.name)
                 seen.add(path)
                 games.append(g)
+            self.report.append((s.name, s.path, "%d juegos" % len(games)))
             if not games:
                 continue
             self._local_art(s, games)

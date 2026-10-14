@@ -106,6 +106,7 @@ class Store(object):
         if isinstance(st, dict):
             self.data["settings"].update(st)
         self.data["es_imported"] = bool(d.get("es_imported", False))
+        self.data["es_import_ok"] = bool(d.get("es_import_ok", False))
 
     def save(self):
         if not self.dirty:

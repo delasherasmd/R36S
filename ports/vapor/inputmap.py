@@ -8,6 +8,7 @@ import os
 import xml.etree.ElementTree as ET
 
 import sdl
+from library import parse_xml_lenient
 
 ACTIONS = ("up", "down", "left", "right", "a", "b", "x", "y", "l1", "r1", "l2", "r2",
            "start", "select", "hotkey")
@@ -69,7 +70,7 @@ def load_es_input(paths):
         if not os.path.isfile(p):
             continue
         try:
-            root = ET.parse(p).getroot()
+            root = parse_xml_lenient(p)
         except (ET.ParseError, IOError, OSError):
             continue
         for ic in root.iter("inputConfig"):
@@ -123,8 +124,10 @@ class Input(object):
     REPEAT_FAST = 35
     AXIS_DEAD = 16000
 
-    def __init__(self, es_input_paths):
+    def __init__(self, es_input_paths, swap_ab=False):
         self.configs = load_es_input(es_input_paths)
+        # "SWITCH A/B BUTTONS IN EMULATIONSTATION" activado en ES
+        self.swap_ab = swap_ab
         self.joys = {}  # instance id -> (ptr, Binding)
         self.held = {}  # accion -> (t_pulsado, t_proxima_repeticion)
         self.axis_state = {}
@@ -203,6 +206,8 @@ class Input(object):
             ent = self.joys.get(ev.which)
             if ent:
                 act = ent[1].buttons.get(ev.index)
+                if self.swap_ab and act in ("a", "b"):
+                    act = "b" if act == "a" else "a"
                 if act:
                     if t == sdl.SDL_JOYBUTTONDOWN:
                         self._down(act, now, out)

@@ -41,32 +41,49 @@ imágenes y emuladores** que ya tienes y, al salir, vuelves a EmulationStation c
 
 ## Instalación (desde el PC, sin comandos)
 
-1. Descarga este repositorio: botón verde **Code → Download ZIP**, y descomprímelo.
-2. Apaga la consola y saca la tarjeta micro SD **de las ROMs** (si usas dos tarjetas, la segunda).
-3. En el PC abre la partición **EASYROMS** de la tarjeta y entra en la carpeta **`ports`**
-   (si no existe, créala).
-4. Copia ahí, desde la carpeta `ports` del ZIP:
-   - el archivo **`Vapor.sh`**
-   - la carpeta **`vapor`** completa
-
-   Debe quedar así:
+1. Descarga el paquete listo para copiar:
+   **[dist/Vapor-R36S.zip](https://github.com/delasherasmd/R36S/raw/claude/r36s-steam-view-mod-mgribp/dist/Vapor-R36S.zip)**
+   y descomprímelo. Dentro hay una carpeta **`ports`**, una carpeta `extra` y un `LEEME.txt`.
+2. Saca la micro SD donde están **tus juegos** y ábrela en el PC. Es la partición que tiene las carpetas
+   `gba`, `snes`, `psx`, `nes`… (normalmente se llama **EASYROMS**).
+   - Si tu R36S usa **dos tarjetas**, los juegos suelen estar en la segunda (ranura izquierda / TF2).
+     **Si no sabes cuál usa la consola, copia Vapor en las dos**: no pasa nada.
+3. Copia la carpeta **`ports`** del ZIP en la **raíz** de esa partición, al lado de `gba`, `snes`…
+   Si Windows pregunta si quieres combinar la carpeta `ports` que ya existe, di que **sí**.
+   Tiene que quedar **exactamente** así:
 
    ```
    EASYROMS/
+   ├── gba/  snes/  psx/ ...
    └── ports/
-       ├── Vapor.sh
+       ├── Vapor.sh          ← directamente aquí
        └── vapor/
            ├── main.py
-           ├── assets/
            └── ...
    ```
 
-5. Vuelve a poner la tarjeta y enciende la consola.
-6. En EmulationStation, reinícialo para que vea el nuevo port:
-   **START → QUIT → RESTART EMULATIONSTATION**.
-7. Entra en el sistema **Ports** y abre **Vapor**.
+   ⚠️ EmulationStation **no mira las subcarpetas** de `ports`: si queda como `ports/ports/Vapor.sh`
+   o `ports/R36S-.../Vapor.sh`, no aparecerá.
+4. Pon la tarjeta en la consola y enciéndela (si ya estaba encendida:
+   **START → QUIT → RESTART EMULATIONSTATION**).
+5. Entra en el sistema **Ports** y abre **Vapor**.
 
 > Si copias por red/SSH (WinSCP, etc.), la carpeta es `/roms/ports/` (o `/roms2/ports/` si usas la segunda SD).
+
+### Si Vapor no aparece en Ports
+
+- **El sistema Ports no sale en el menú principal** → START → **UI SETTINGS → VISIBLE SYSTEMS** y activa
+  **Ports**. Reinicia EmulationStation.
+- **Ports sale pero Vapor no está en la lista** → tu EmulationStation está configurado para leer solo los juegos
+  apuntados en `gamelist.xml`. Con una de estas dos opciones basta:
+  1. En la consola: START → **ADVANCED SETTINGS → PARSE GAMESLISTS ONLY → OFF** y reinicia EmulationStation.
+  2. En el PC: si **no** existe `ports/gamelist.xml`, copia ahí `extra/gamelist.xml` del ZIP.
+     Si **ya** existe, ábrelo con el Bloc de notas y pega el contenido de `extra/entrada-gamelist.txt`
+     justo **antes** de la última línea `</gameList>`.
+- **Comprueba la carpeta**: `Vapor.sh` debe estar directamente en `ports/`, en la tarjeta/partición donde
+  están tus juegos (o en las dos tarjetas si tienes dos).
+- **Aparece pero se cierra enseguida** → abre `ports/vapor/data/vapor.out` con el Bloc de notas y mándame
+  lo que diga.
 
 ## Controles
 
@@ -84,6 +101,7 @@ imágenes y emuladores** que ya tienes y, al salir, vuelves a EmulationStation c
 | **SELECT + START** | Salir de Vapor y volver a EmulationStation |
 
 Los botones se leen de la configuración de EmulationStation (`es_input.cfg`), así que coinciden con los de tu consola.
+Si en EmulationStation activaste **SWITCH A/B BUTTONS**, Vapor también los intercambia.
 
 ## Listas y prioridades
 
@@ -137,8 +155,7 @@ y se suma el tiempo jugado.
 
 ## Solución de problemas
 
-- **No aparece Vapor en Ports**: comprueba que `Vapor.sh` está en `ports/` (no dentro de `vapor/`) y reinicia
-  EmulationStation.
+- **No aparece Vapor en Ports**: mira la sección [Si Vapor no aparece en Ports](#si-vapor-no-aparece-en-ports).
 - **Se abre y vuelve enseguida a EmulationStation**: mira `ports/vapor/data/vapor.out` y `vapor.log`
   (se pueden abrir con el Bloc de notas en el PC).
 - **No salen carátulas**: Vapor usa las imágenes de tus `gamelist.xml`. Si tus juegos no tienen imágenes,
@@ -157,7 +174,8 @@ ports/vapor/library.py  lectura de la configuración de EmulationStation y coman
 ports/vapor/store.py    listas, prioridades, favoritos, historial
 ports/vapor/views.py    pantallas (biblioteca, listas, ficha)
 ports/vapor/dialogs.py  menú, casillas, teclado en pantalla, ordenar por prioridad
-tools/                  generador de iconos, ArkOS de prueba y capturas sin pantalla
+tools/                  generador de iconos, paquete ZIP (make_dist.py), ArkOS de prueba y capturas
+dist/Vapor-R36S.zip     paquete listo para copiar a la tarjeta
 tests/                  pruebas automáticas
 ```
 

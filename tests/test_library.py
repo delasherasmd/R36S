@@ -33,7 +33,8 @@ SYSTEMS = """<?xml version="1.0"?>
   </system>
   <system>
     <name>retropie</name><fullname>Options</fullname><path>/opt/system/</path>
-    <extension>.sh</extension><command>%ROM%</command>
+    <extension>.sh</extension>
+    <command>sudo chmod 666 /dev/tty1; %ROM% 2>&1 > /dev/tty1; printf "\033c" >> /dev/tty1</command>
   </system>
   <system>
     <name>broken</name><path>{roms}/broken/</path><extension>.x</extension>
@@ -160,6 +161,26 @@ class LibraryTest(unittest.TestCase):
         lib2.load()
         self.assertEqual(sorted(g.path for g in lib2.games if g.system.name == "snes"),
                          sorted(g.path for g in self.lib.games if g.system.name == "snes"))
+
+    def test_arkos_unescaped_ampersand_in_es_systems(self):
+        # ArkOS escribe "2>&1" sin escapar; EmulationStation (pugixml) lo acepta
+        self.assertEqual(self.lib.errors, [])
+        self.assertEqual([s.name for s in self.lib.systems], ["snes", "ports"])
+
+    def test_regex_fallback_for_very_broken_xml(self):
+        path = os.path.join(self.etc, "es_systems.cfg")
+        with open(path) as f:
+            txt = f.read()
+        # comentario invalido ("--" dentro) y '<' suelto en un comando
+        txt = txt.replace("<systemList>", "<systemList><!-- roto -- comentario -->")
+        txt = txt.replace("<command>%ROM%</command>", "<command>%ROM% < /dev/null</command>")
+        with open(path, "w") as f:
+            f.write(txt)
+        lib = library.Library(self.etc, self.home, None)
+        lib.load(use_cache=False)
+        self.assertEqual([s.name for s in lib.systems], ["snes", "ports"])
+        cmd = lib.launch_command([g for g in lib.games if g.name == "Profundo"][0])
+        self.assertIn("/usr/local/bin/sa.sh", cmd)
 
     def test_broken_gamelist_fallback(self):
         with open(os.path.join(self.roms, "snes", "gamelist.xml"), "w") as f:

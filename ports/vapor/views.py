@@ -404,7 +404,10 @@ class GameView(object):
         elif k == "search":
             draw_empty(self.app, x, y, w, h, T("empty_search"), T("empty_search_hint"), "search")
         else:
-            draw_empty(self.app, x, y, w, h, T("no_games"), T("no_games_hint"))
+            hint = T("no_games_hint")
+            if self.app.lib.errors:
+                hint = self.app.lib.errors[0] + "\n\n" + hint
+            draw_empty(self.app, x, y, w, h, T("no_games"), hint)
 
     def draw_grid(self, L):
         g = self.g

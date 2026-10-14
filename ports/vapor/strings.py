@@ -107,6 +107,8 @@ ES = {
     "no_games_hint": "Vapor usa las mismas carpetas que EmulationStation (por ejemplo /roms/gba). "
                      "Copia tus ROMs allí y vuelve a abrir Vapor.",
     "no_cats": "Crea tu primera lista",
+    "config_error": "No se pudo leer la configuración de EmulationStation: %s",
+    "no_systems": "No se encontró ningún sistema en %s",
     "menu": "Menú",
     "search": "Buscar juego…",
     "sort": "Ordenar por: %s",
@@ -270,6 +272,8 @@ EN = {
     "no_games_hint": "Vapor uses the same folders as EmulationStation (e.g. /roms/gba). "
                      "Copy your ROMs there and open Vapor again.",
     "no_cats": "Create your first list",
+    "config_error": "Could not read the EmulationStation configuration: %s",
+    "no_systems": "No systems found in %s",
     "menu": "Menu",
     "search": "Search game…",
     "sort": "Sort by: %s",

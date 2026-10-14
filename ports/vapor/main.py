@@ -181,16 +181,23 @@ def main(argv=None):
         lib.load(progress, use_cache=not args.no_cache)
         log("Biblioteca: %d juegos, %d sistemas en %.2fs" % (len(lib.games), len(lib.systems),
                                                              time.time() - t0))
+        log("Configuracion: %s" % lib.cfg_used)
         for err in lib.errors:
             log("Aviso:", err)
+        for name, path, info in lib.report:
+            log("  %-12s %-28s %s" % (name, path, info))
         if store.fix_paths(lib.by_path):
             log("Rutas de listas actualizadas (ROMs movidas de sitio)")
-        if not store.data.get("es_imported"):
+        # Se importan las colecciones de ES la primera vez que hay juegos (si la
+        # biblioteca salio vacia, por ejemplo por un error de lectura, se reintenta).
+        if lib.games and not store.data.get("es_import_ok"):
             n = store.import_from_es(lib.collections_dir(), lib.home, set(lib.by_path))
+            store.data["es_import_ok"] = True
             log("Colecciones de ES importadas: %d juegos" % n)
             store.save()
 
-        inp = Input(lib.input_cfg_paths())
+        inp = Input(lib.input_cfg_paths(),
+                    swap_ab=lib.settings.get("InvertButtons", "false") == "true")
         inp.open_all()
         launch_file = args.launch_file or os.path.join(args.data, "launch.cmd")
         app = App(g, lib, store, inp, launch_file)

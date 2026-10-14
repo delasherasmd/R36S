@@ -171,7 +171,9 @@ def main(root):
   </system>
   <system>
     <name>retropie</name><fullname>Options</fullname><path>/opt/system/</path>
-    <extension>.sh</extension><command>%%ROM%%</command><platform>cmds</platform>
+    <extension>.sh</extension>
+    <command>sudo chmod 666 /dev/tty1; %%ROM%% 2>&1 > /dev/tty1; printf "\\033c" >> /dev/tty1</command>
+    <platform>cmds</platform>
   </system>""" % sp)
     sysxml.append("</systemList>")
     with open(os.path.join(etc, "es_systems.cfg"), "w") as f:

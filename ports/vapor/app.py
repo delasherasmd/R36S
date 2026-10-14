@@ -172,6 +172,8 @@ class App(object):
         """Dibuja el simbolo de un boton del mando. Devuelve el ancho."""
         g = self.g
         d = g.S(16)
+        if getattr(self.inp, "swap_ab", False) and btn in ("A", "B"):
+            btn = "B" if btn == "A" else "A"
         if btn in ("A", "B", "X", "Y"):
             g.icon("circle", x, cy - d // 2, d, C.GLYPH_BG)
             g.text(btn, x + d // 2 + 1, cy, 10, C.DARK_TEXT, bold=True, align="center",
