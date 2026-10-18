@@ -32,6 +32,11 @@ imágenes y emuladores** que ya tienes y, al salir, vuelves a EmulationStation c
 - **Búsqueda** con teclado en pantalla, **ordenar** por nombre, sistema, jugado recientemente,
   tiempo de juego o veces jugado.
 - **Importa** tus colecciones personalizadas de EmulationStation y puede **exportar** tus listas a EmulationStation.
+- **Personalizar** (START → Personalizar…): 10 temas de color, color de acento, tamaño de carátulas, con vista
+  previa en vivo.
+- **Brillo de pantalla** propio, que funciona también en clones de la R36S donde el de EmulationStation no hace nada.
+- **Música de fondo** con tus canciones, en orden aleatorio.
+- **Abrir Vapor al encender** la consola (opcional y reversible).
 - Español e inglés.
 
 ## Requisitos
@@ -97,7 +102,7 @@ imágenes y emuladores** que ya tienes y, al salir, vuelves a EmulationStation c
 | **Y** | Marcar o desmarcar como favorito |
 | **L2 / R2** | En una lista o en Favoritos: **subir / bajar la prioridad** del juego. En la pestaña LISTAS: subir / bajar la prioridad de la lista. En el resto: saltar por letra |
 | **SELECT** | Cambiar vista cuadrícula / detalles |
-| **START** | Menú (buscar, ordenar, nueva lista, ordenar listas, exportar…) |
+| **START** | Menú (buscar, **personalizar**, ordenar, nueva lista, ordenar listas, exportar…) |
 | **SELECT + START** | Salir de Vapor y volver a EmulationStation |
 
 Los botones se leen de la configuración de EmulationStation (`es_input.cfg`), así que coinciden con los de tu consola.
@@ -146,6 +151,52 @@ EASYROMS/ports/vapor/data/history.log       ← tiempo de juego
 - **Exportar a EmulationStation** (menú START) guarda cada lista como “colección personalizada” de
   EmulationStation. Después reinicia ES y actívalas en *START → Game Collection Settings → Custom Game Collections*.
 
+## Personalizar
+
+Pulsa **START → Personalizar…**. Se abre un panel a la derecha y la biblioteca de la izquierda cambia en vivo.
+Con **← →** cambias cada opción y con **B** cierras (se guarda solo).
+
+![Personalizar](docs/screenshots/15_personalizar.png)
+
+| Opción | Qué hace |
+|---|---|
+| **Tema** | Steam, Medianoche, Morado, Océano, Esmeralda, Carmesí, Ámbar, Rosa, Game Boy y Grafito |
+| **Color de acento** | El color de la selección, pestañas y botones (o el del tema) |
+| **Carátulas** | Pequeñas, normales o grandes |
+| **Brillo** | Brillo de la pantalla (ver abajo) |
+| **Música de fondo / Volumen / Siguiente canción** | Tu música, en orden aleatorio |
+| **Abrir Vapor al encender** | Arrancar la consola directamente en Vapor |
+| **Restablecer colores** | Vuelve al tema Steam |
+
+### Brillo
+En algunas R36S (sobre todo clones) la opción de brillo de EmulationStation aparece pero no hace nada: EmulationStation
+solo sabe usar el control `/sys/class/backlight/backlight`, y en esas consolas el control tiene otro nombre.
+El brillo de Vapor busca **cualquier** control de brillo que tenga la consola. El valor elegido se vuelve a aplicar
+cada vez que enciendes la consola y abres Vapor (o al arrancar, si usas *Abrir Vapor al encender*).
+Si ves “No disponible”, tu consola no ofrece ningún control de brillo al sistema.
+
+### Música de fondo
+Copia tus canciones (`.mp3`, `.ogg`, `.wav`, `.flac`, `.mod`…) en **`EASYROMS/ports/vapor/music/`**.
+Suenan en orden aleatorio mientras estás en Vapor (también al encender la consola si activas el arranque en Vapor)
+y se paran al abrir un juego. Vapor también usa la música que ya tengas para EmulationStation
+(`~/.emulationstation/music` y `/roms/bgmusic`).
+
+### Abrir Vapor al encender
+Actívalo en **Personalizar → Abrir Vapor al encender**. Hay que hacerlo **en la consola**, con Vapor abierto desde
+Ports. A partir de ahí:
+
+- Al encender verás Vapor en vez de EmulationStation.
+- Para ir a EmulationStation: **START → Salir a EmulationStation** (o **SELECT + START**).
+- Vapor se abre una sola vez por encendido: si reinicias EmulationStation, no vuelve a aparecer.
+- **Seguridad:** si alguna vez Vapor no llegara a abrirse al arrancar (por ejemplo, se cuelga y apagas la consola),
+  el siguiente encendido va directo a EmulationStation y la opción se desactiva sola.
+- Para desactivarlo: la misma opción en *Personalizar*, o desde el PC borrando el archivo
+  `EASYROMS/ports/vapor/data/autostart`.
+
+Cómo funciona por dentro: Vapor añade un pequeño bloque, marcado con `VAPOR-AUTOSTART`, al principio de
+`/usr/bin/emulationstation/emulationstation.sh` (y de `emulationstation.sh.es`). Antes de tocarlo guarda una copia en
+`emulationstation.sh.vapor-backup`. Al desactivar la opción, el bloque se quita y el archivo queda como estaba.
+
 ## Cómo lanza los juegos
 
 Vapor lee `es_systems.cfg`, `es_settings.cfg` y los `gamelist.xml` igual que EmulationStation y construye
@@ -174,6 +225,11 @@ ports/vapor/library.py  lectura de la configuración de EmulationStation y coman
 ports/vapor/store.py    listas, prioridades, favoritos, historial
 ports/vapor/views.py    pantallas (biblioteca, listas, ficha)
 ports/vapor/dialogs.py  menú, casillas, teclado en pantalla, ordenar por prioridad
+ports/vapor/settings_ui.py  panel Personalizar
+ports/vapor/theme.py    temas de color
+ports/vapor/music.py    música de fondo (SDL2_mixer)
+ports/vapor/system.py   brillo y arranque directo en Vapor
+ports/vapor/music/      aquí van tus canciones
 tools/                  generador de iconos, paquete ZIP (make_dist.py), ArkOS de prueba y capturas
 dist/Vapor-R36S.zip     paquete listo para copiar a la tarjeta
 tests/                  pruebas automáticas

@@ -78,6 +78,19 @@ C) Aparece pero se cierra enseguida:
    mira el archivo ports\\vapor\\data\\vapor.out (se abre con el Bloc de notas).
 
 
+PERSONALIZAR (START > Personalizar...)
+--------------------------------------
+- Tema y color de acento, tamano de caratulas (con vista previa en vivo).
+- Brillo: funciona aunque el brillo de EmulationStation no haga nada en tu consola.
+- Musica de fondo: copia tus canciones (.mp3 .ogg .wav...) en ports\\vapor\\music
+  y sonaran en orden aleatorio.
+- Abrir Vapor al encender: activalo desde la consola. Para ir a EmulationStation:
+  START > Salir a EmulationStation (o SELECT+START).
+  Para desactivarlo desde el PC: borra el archivo ports\\vapor\\data\\autostart
+  Si alguna vez Vapor no llegara a abrirse al arrancar, el siguiente encendido va
+  directo a EmulationStation y la opcion se desactiva sola.
+
+
 USO RAPIDO
 ----------
 L1/R1 pestanas - A ficha/JUGAR - B atras - X listas - Y favorito

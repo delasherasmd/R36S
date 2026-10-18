@@ -1,0 +1,12 @@
+MUSICA DE FONDO DE VAPOR
+========================
+
+Copia aqui tus canciones (.mp3, .ogg, .wav, .flac, .mod...).
+Vapor las reproduce en orden aleatorio mientras estas en la biblioteca,
+tambien al encender la consola si activaste "Abrir Vapor al encender".
+
+Ajustes: en Vapor pulsa START > Personalizar > MUSICA
+(encender/apagar, volumen y "Siguiente cancion").
+
+Vapor tambien usa la musica que ya tengas para EmulationStation
+(carpetas ~/.emulationstation/music y /roms/bgmusic).

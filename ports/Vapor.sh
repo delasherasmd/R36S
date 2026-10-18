@@ -9,6 +9,9 @@
 # Como funciona: Vapor muestra la biblioteca; al elegir JUGAR escribe el
 # comando del emulador (el mismo que usaria EmulationStation) y se cierra.
 # Este script ejecuta el juego, apunta el tiempo jugado y vuelve a abrir Vapor.
+#
+# Si activas "Abrir Vapor al encender" (START > Personalizar), el arranque de
+# EmulationStation llama a este script con VAPOR_BOOT=1 antes de abrir ES.
 
 SELF="$(readlink -f "$0")"
 BASE="$(dirname "$SELF")"
@@ -46,6 +49,10 @@ export VAPOR_SELF="$SELF"
 export VAPOR_LAUNCH="$LAUNCH"
 export HOME="${HOME:-/home/ark}"
 [ -d "$HOME" ] || export HOME=/home/ark
+# Al arrancar directamente en Vapor puede que HOME no sea el del usuario ark
+if [ ! -d "$HOME/.emulationstation" ] && [ -d /home/ark/.emulationstation ]; then
+  export HOME=/home/ark
+fi
 
 printf "\033c" > /dev/tty1 2>/dev/null
 

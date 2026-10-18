@@ -978,7 +978,7 @@ class LibraryScreen(Screen):
         _x, _y, w, _h = self.content_rect()
         m = g.S(C.MARGIN)
         gap = g.S(C.GAP)
-        cols = max(2, int((w - 2 * m + gap) // (g.S(108) + gap)))
+        cols = max(2, int((w - 2 * m + gap) // (g.S(C.TILE_MIN) + gap)))
         tw = (w - 2 * m - (cols - 1) * gap) // cols
         th = int(tw * 1.25)
         return tw, th, cols, gap
@@ -1074,7 +1074,8 @@ class LibraryScreen(Screen):
         app = self.app
         st = app.store
         v = self.view()
-        items = [{"label": T("search"), "fn": self.search, "icon": "search"}]
+        items = [{"label": T("search"), "fn": self.search, "icon": "search"},
+                 {"label": T("customize"), "fn": self.customize, "icon": "gear"}]
         if isinstance(v, GameView) and v.kind != "recent":
             key, opts = ("sort_list", SORTS_LIST) if v.ordered() else ("sort", SORTS)
 
@@ -1141,6 +1142,10 @@ class LibraryScreen(Screen):
                       "fn": lambda: app.push(InfoDialog(app, T("about"), T("about_text")))})
         items.append({"label": T("quit"), "fn": app.quit, "icon": "exit"})
         app.push(MenuDialog(app, T("menu"), items))
+
+    def customize(self):
+        from settings_ui import SettingsScreen
+        self.app.push(SettingsScreen(self.app, self))
 
     def search(self):
         def done(q):

@@ -13,6 +13,7 @@ from strings import T
 class Screen(object):
     """Pantalla o dialogo. Los dialogos (modal=True) se dibujan sobre la anterior."""
     modal = False
+    dim = True  # oscurecer lo de detras (los paneles con vista previa no lo hacen)
 
     def __init__(self, app):
         self.app = app
@@ -103,6 +104,10 @@ class App(object):
         self.battery = Battery()
         self.clock_text = ""
         self.ev = sdl.new_event_buffer()
+        # servicios opcionales (los crea main.py)
+        self.music = None
+        self.backlight = None
+        self.autostart = None
 
     # ----------------------------------------------------------- pantallas
     def push(self, scr):
@@ -262,7 +267,7 @@ class App(object):
                 break
         g.clear(C.BG_BOTTOM)
         for scr in self.screens[start:]:
-            if scr.modal:
+            if scr.modal and scr.dim:
                 g.fill(0, 0, g.w, g.h, C.DIM)
             scr.draw()
         top = self.top()
@@ -316,6 +321,8 @@ class App(object):
             if scr.update(self.now):
                 animating = True
         if self.g.pump_images(3):
+            self.dirty = True
+        if self.music is not None and self.music.tick(self.now):
             self.dirty = True
         if animating:
             self.dirty = True

@@ -154,14 +154,42 @@ def main(argv=None):
     from app import App
     from views import LibraryScreen
     from strings import set_lang
+    from settings_ui import apply_theme
+    from music import MusicPlayer, music_dirs
+    from system import Autostart, Backlight
+    from library import load_es_settings
 
-    win = ren = g = inp = None
+    win = ren = g = inp = music = None
     code = 0
+    boot = os.environ.get("VAPOR_BOOT") == "1"
     try:
         win, ren, w, h = create_display(sdl, args, log)
         g = Gfx(ren, w, h)
         store = Store(args.data)
         set_lang(store.get("lang"))
+        apply_theme(store)
+
+        # musica de fondo (empieza ya, mientras carga la biblioteca)
+        es_settings = load_es_settings(os.path.join(args.home, ".emulationstation",
+                                                    "es_settings.cfg"))
+        music = MusicPlayer(music_dirs(HERE, args.home, es_settings))
+        log("Musica: %d canciones, audio %s" % (len(music.songs),
+                                                "si" if music.available else "no"))
+        music.start(bool(store.get("music")), int(store.get("music_volume")))
+        if music.error:
+            log("Aviso musica:", music.error)
+
+        # brillo guardado en Vapor: se aplica una vez por encendido
+        backlight = Backlight()
+        log("Brillo: %s" % (", ".join(backlight.devices) or "sin control"))
+        marker = "/dev/shm/vapor_brightness_applied"
+        if store.get("brightness") is not None and backlight.available and \
+                not os.path.exists(marker):
+            backlight.set_percent(store.get("brightness"))
+            try:
+                open(marker, "w").close()
+            except (IOError, OSError):
+                pass
         state = {"t": 0}
 
         def progress(i, n, name):
@@ -201,9 +229,17 @@ def main(argv=None):
         inp.open_all()
         launch_file = args.launch_file or os.path.join(args.data, "launch.cmd")
         app = App(g, lib, store, inp, launch_file)
+        app.music = music
+        app.backlight = backlight
+        app.autostart = Autostart(os.environ.get("VAPOR_SELF", ""), args.data)
         ls = LibraryScreen(app)
         app.push(ls)
         ls.apply_resume()
+        app.draw()
+        if boot:
+            # Vapor llego a mostrarse en el arranque: todo bien
+            app.autostart.boot_ok()
+            log("Arranque directo en Vapor")
         result = app.run()
         if result and result[0] == "launch":
             log("Lanzando:", result[2])
@@ -217,6 +253,11 @@ def main(argv=None):
             except Exception:
                 pass
     finally:
+        if music is not None:
+            try:
+                music.stop(fade_ms=250)
+            except Exception:
+                pass
         if inp is not None:
             inp.close_all()
         if g is not None:

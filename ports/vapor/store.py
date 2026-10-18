@@ -16,6 +16,13 @@ DEFAULT_SETTINGS = {
     "tab": "all",
     "lang": "es",
     "show_genres": True,
+    # personalizacion
+    "theme": "steam",
+    "accent": "auto",
+    "tile_size": "normal",
+    "brightness": None,      # None = no tocar el brillo del sistema
+    "music": True,
+    "music_volume": 70,
 }
 
 

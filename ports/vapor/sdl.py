@@ -288,6 +288,34 @@ else:  # pragma: no cover - depende del sistema
 
 
 # --------------------------------------------------------------------------
+# SDL2_mixer (opcional: musica de fondo). EmulationStation tambien la usa.
+# --------------------------------------------------------------------------
+MIX = _load(_env_first("VAPOR_SDL2_MIXER", ["libSDL2_mixer-2.0.so.0", "libSDL2_mixer.so"]),
+            required=False)
+MIX_INIT_FLAC = 0x01
+MIX_INIT_MOD = 0x02
+MIX_INIT_MP3 = 0x08
+MIX_INIT_OGG = 0x10
+AUDIO_S16SYS = 0x8010
+if MIX is not None:
+    try:
+        Mix_Init = _fn(MIX, "Mix_Init", c_int, [c_int])
+        Mix_Quit = _fn(MIX, "Mix_Quit", None, [])
+        Mix_OpenAudio = _fn(MIX, "Mix_OpenAudio", c_int, [c_int, c_uint16, c_int, c_int])
+        Mix_CloseAudio = _fn(MIX, "Mix_CloseAudio", None, [])
+        Mix_LoadMUS = _fn(MIX, "Mix_LoadMUS", c_void_p, [c_char_p])
+        Mix_FreeMusic = _fn(MIX, "Mix_FreeMusic", None, [c_void_p])
+        Mix_PlayMusic = _fn(MIX, "Mix_PlayMusic", c_int, [c_void_p, c_int])
+        Mix_FadeInMusic = _fn(MIX, "Mix_FadeInMusic", c_int, [c_void_p, c_int, c_int])
+        Mix_HaltMusic = _fn(MIX, "Mix_HaltMusic", c_int, [])
+        Mix_PlayingMusic = _fn(MIX, "Mix_PlayingMusic", c_int, [])
+        Mix_VolumeMusic = _fn(MIX, "Mix_VolumeMusic", c_int, [c_int])
+        Mix_FadeOutMusic = _fn(MIX, "Mix_FadeOutMusic", c_int, [c_int])
+    except AttributeError:  # pragma: no cover
+        MIX = None
+
+
+# --------------------------------------------------------------------------
 # Eventos: se leen desde un buffer de 56 bytes (tamano de SDL_Event)
 # --------------------------------------------------------------------------
 EVENT_SIZE = 56

@@ -151,6 +151,17 @@ class UISmokeTest(unittest.TestCase):
         self.assertEqual(app2.top().game.path, first)
         self.assertEqual(ls2.tabs[ls2.tab], "list:Rpg")
 
+    def test_customize_panel_without_services(self):
+        # sin musica, sin brillo y sin arranque (como en un PC): no debe fallar
+        from settings_ui import SettingsScreen
+        import theme
+        self.app.push(SettingsScreen(self.app, self.ls))
+        for _ in range(16):
+            self.press("right", "a", "left", "down")
+        self.press("b")
+        self.assertIs(self.app.top(), self.ls)
+        theme.apply()
+
     def test_all_screens_render(self):
         # recorre pestanas, menu, ayuda y vista detalles sin errores
         for _ in range(len(self.ls.tabs)):
