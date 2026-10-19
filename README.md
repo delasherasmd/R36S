@@ -36,6 +36,7 @@ imágenes y emuladores** que ya tienes y, al salir, vuelves a EmulationStation c
   previa en vivo.
 - **Brillo de pantalla** propio, que funciona también en clones de la R36S donde el de EmulationStation no hace nada.
 - **Música de fondo** con tus canciones, en orden aleatorio.
+- **Silenciar la consola** por completo (también en los juegos) desde START o desde *Personalizar*.
 - **Abrir Vapor al encender** la consola (opcional y reversible).
 - Español e inglés.
 
@@ -164,6 +165,7 @@ Con **← →** cambias cada opción y con **B** cierras (se guarda solo).
 | **Color de acento** | El color de la selección, pestañas y botones (o el del tema) |
 | **Carátulas** | Pequeñas, normales o grandes |
 | **Brillo** | Brillo de la pantalla (ver abajo) |
+| **Silenciar consola** | Quita todo el sonido, también en los juegos |
 | **Música de fondo / Volumen / Siguiente canción** | Tu música, en orden aleatorio |
 | **Abrir Vapor al encender** | Arrancar la consola directamente en Vapor |
 | **Restablecer colores** | Vuelve al tema Steam |
@@ -174,6 +176,15 @@ solo sabe usar el control `/sys/class/backlight/backlight`, y en esas consolas e
 El brillo de Vapor busca **cualquier** control de brillo que tenga la consola. El valor elegido se vuelve a aplicar
 cada vez que enciendes la consola y abres Vapor (o al arrancar, si usas *Abrir Vapor al encender*).
 Si ves “No disponible”, tu consola no ofrece ningún control de brillo al sistema.
+
+### Silenciar la consola
+**START → Silenciar consola** (o *Personalizar → Silenciar consola*) quita **todo** el sonido de la consola,
+también dentro de los juegos. Arriba a la derecha aparece un altavoz rojo tachado mientras está en silencio.
+Para quitarlo: la misma opción (**Quitar silencio**) o simplemente **sube el volumen con los botones** de la
+consola. El silencio se mantiene aunque apagues la consola.
+
+Por dentro usa el mismo control de volumen que los botones de ArkOS (`Playback`): lo pone a 0 % y recuerda el
+volumen que tenías para devolverlo al quitar el silencio.
 
 ### Música de fondo
 Copia tus canciones (`.mp3`, `.ogg`, `.wav`, `.flac`, `.mod`…) en **`EASYROMS/ports/vapor/music/`**.
@@ -193,9 +204,13 @@ Ports. A partir de ahí:
 - Para desactivarlo: la misma opción en *Personalizar*, o desde el PC borrando el archivo
   `EASYROMS/ports/vapor/data/autostart`.
 
-Cómo funciona por dentro: Vapor añade un pequeño bloque, marcado con `VAPOR-AUTOSTART`, al principio de
-`/usr/bin/emulationstation/emulationstation.sh` (y de `emulationstation.sh.es`). Antes de tocarlo guarda una copia en
-`emulationstation.sh.vapor-backup`. Al desactivar la opción, el bloque se quita y el archivo queda como estaba.
+- Cada arranque deja una línea en `ports/vapor/data/boot.log` (si algo falla, ahí se ve qué pasó).
+
+Cómo funciona por dentro: Vapor añade un pequeño bloque, marcado con `VAPOR-AUTOSTART`, en
+`/usr/bin/emulationstation/emulationstation.sh` (y en `emulationstation.sh.es`), **justo antes de la línea que
+abre EmulationStation**, cuando ArkOS ya quitó la pantalla de carga y preparó todo. Antes de tocarlo guarda una
+copia en `emulationstation.sh.vapor-backup`. Al desactivar la opción, el bloque se quita y el archivo queda como
+estaba. Si actualizas Vapor, el bloque se actualiza solo la próxima vez que abras Vapor desde Ports.
 
 ## Cómo lanza los juegos
 
@@ -213,7 +228,18 @@ y se suma el tiempo jugado.
   usa el *scraper* de EmulationStation (o Skraper en el PC). También detecta carpetas `images/`, `media/`,
   `boxart/`, `snap/`…
 - **Un juego no arranca desde Vapor**: prueba a abrirlo desde EmulationStation; Vapor usa el mismo comando.
-- **Desinstalar**: borra `ports/Vapor.sh` y la carpeta `ports/vapor`. No toca nada más del sistema.
+- **Sale un video o una imagen al abrir o al cerrar un juego**: es la “imagen de carga” de ArkOS (el script que
+  corre al cerrar cada juego la muestra). En EmulationStation: **START → UI SETTINGS → GAME LOADING IMAGE MODE →
+  NONE**. Si tu sistema no tiene esa opción, renombra en el PC la carpeta `EASYROMS/launchimages` (por ejemplo a
+  `launchimages_off`).
+- **Se reproduce el video del juego al volver a la lista de EmulationStation**: START → UI SETTINGS →
+  GAMELIST VIEW STYLE → **DETAILED**, o quítale solo el sonido en START → SOUND SETTINGS → ENABLE VIDEO AUDIO → OFF.
+  (En Vapor no hay videos.)
+- **Vapor no se abre al encender**: abre Vapor una vez desde Ports (actualiza el arranque), mira que en
+  *Personalizar* ponga **Abrir Vapor al encender: sí** y, si sigue sin abrirse, mándame `ports/vapor/data/boot.log`
+  y `ports/vapor/data/vapor.log`.
+- **Desinstalar**: desactiva antes *Abrir Vapor al encender* si lo usaste; luego borra `ports/Vapor.sh` y la carpeta
+  `ports/vapor`. No toca nada más del sistema.
 
 ## Para desarrolladores
 

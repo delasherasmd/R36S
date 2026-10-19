@@ -262,6 +262,20 @@ def exit_icon():
     return img
 
 
+def speaker(muted=False):
+    img, d = canvas()
+    d.polygon([p(0.08, 0.36), p(0.28, 0.36), p(0.52, 0.12), p(0.52, 0.88), p(0.28, 0.64),
+               p(0.08, 0.64)], fill=WHITE)
+    w = int(0.09 * S)
+    if muted:
+        d.line([p(0.64, 0.34), p(0.94, 0.66)], fill=WHITE, width=w)
+        d.line([p(0.64, 0.66), p(0.94, 0.34)], fill=WHITE, width=w)
+    else:
+        d.arc([p(0.40, 0.30), p(0.76, 0.70)], start=-50, end=50, fill=WHITE, width=w)
+        d.arc([p(0.40, 0.14), p(0.96, 0.86)], start=-50, end=50, fill=WHITE, width=w)
+    return img
+
+
 def main():
     if not os.path.isdir(OUT):
         os.makedirs(OUT)
@@ -293,6 +307,8 @@ def main():
         "info": info(),
         "globe": globe(),
         "exit": exit_icon(),
+        "speaker": speaker(False),
+        "mute": speaker(True),
     }
     for name, img in icons.items():
         save(img, name)

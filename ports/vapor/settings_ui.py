@@ -38,6 +38,7 @@ class SettingsScreen(Screen):
             {"kind": "header", "label": T("sec_screen")},
             {"kind": "brightness", "label": T("opt_brightness")},
             {"kind": "header", "label": T("sec_music")},
+            {"kind": "mute", "label": T("opt_mute")},
             {"kind": "music_on", "label": T("opt_music")},
             {"kind": "volume", "label": T("opt_volume")},
             {"kind": "next_song", "label": T("opt_next_song")},
@@ -100,6 +101,9 @@ class SettingsScreen(Screen):
                 app.music.set_volume(v)
         elif k == "autostart":
             self.toggle_autostart()
+        elif k == "mute":
+            a = app.audio
+            app.set_system_mute(not (a is not None and a.muted))
 
     def activate(self, row):
         k = row["kind"]
@@ -118,8 +122,8 @@ class SettingsScreen(Screen):
                     self.toggle_music()
                 else:
                     m.play_next()
-        elif k == "autostart":
-            self.toggle_autostart()
+        elif k in ("autostart", "mute"):
+            self.change(row, 1)
         elif k == "reset":
             st = self.app.store
             for key, val in (("theme", "steam"), ("accent", "auto"), ("tile_size", "normal")):
@@ -180,6 +184,11 @@ class SettingsScreen(Screen):
             if a is None or not a.supported:
                 return T("not_available")
             return T("on") if a.enabled() else T("off")
+        if k == "mute":
+            a = app.audio
+            if a is None or not a.available:
+                return T("not_available")
+            return T("on") if a.muted else T("off")
         return ""
 
     def subtitle(self, row):
@@ -191,10 +200,17 @@ class SettingsScreen(Screen):
                 return T("no_mixer")
             if not m.songs:
                 return T("no_songs")
-            name = m.current_name() if app.store.get("music") else ""
+            name = m.current_name() if (app.store.get("music") and m.enabled) else ""
             return T("now_playing", name) if name else T("songs_n", len(m.songs))
         if k == "autostart":
+            a = app.autostart
+            last = a.last_boot() if a is not None else ""
+            if a is not None and a.enabled() and last and \
+                    ("desactivado" in last or ("codigo" in last and "codigo 0)" not in last)):
+                return T("autostart_failed")
             return T("autostart_hint")
+        if k == "mute":
+            return T("mute_sub")
         return ""
 
     # ----------------------------------------------------------------- dibujo
@@ -263,7 +279,7 @@ class SettingsScreen(Screen):
                    valign="middle", max_w=w - g.S(20))
         val = self.value(row)
         right = x + w - g.S(10)
-        if k in ("choice", "brightness", "volume", "music_on", "autostart") and val:
+        if k in ("choice", "brightness", "volume", "music_on", "autostart", "mute") and val:
             # flechas < valor >
             vw = g.text_w(val, 12, True)
             sw = 0

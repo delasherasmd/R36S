@@ -156,7 +156,7 @@ def main(argv=None):
     from strings import set_lang
     from settings_ui import apply_theme
     from music import MusicPlayer, music_dirs
-    from system import Autostart, Backlight
+    from system import Autostart, Backlight, SystemAudio
     from library import load_es_settings
 
     win = ren = g = inp = music = None
@@ -175,7 +175,11 @@ def main(argv=None):
         music = MusicPlayer(music_dirs(HERE, args.home, es_settings))
         log("Musica: %d canciones, audio %s" % (len(music.songs),
                                                 "si" if music.available else "no"))
-        music.start(bool(store.get("music")), int(store.get("music_volume")))
+        audio = SystemAudio(os.path.join(args.data, "volume_before_mute"))
+        log("Volumen del sistema: control %s, silenciado %s" % (audio.control, audio.muted))
+        # si la consola esta silenciada no se pone musica
+        music.start(bool(store.get("music")) and not audio.muted,
+                    int(store.get("music_volume")))
         if music.error:
             log("Aviso musica:", music.error)
 
@@ -231,7 +235,15 @@ def main(argv=None):
         app = App(g, lib, store, inp, launch_file)
         app.music = music
         app.backlight = backlight
+        app.audio = audio
         app.autostart = Autostart(os.environ.get("VAPOR_SELF", ""), args.data)
+        if app.autostart.needs_update():
+            # bloque de arranque de una version anterior: se actualiza solo
+            ok, why = app.autostart.enable()
+            log("Arranque automatico actualizado: %s %s" % ("ok" if ok else "fallo", why))
+        last = app.autostart.last_boot()
+        if last:
+            log("Ultimo arranque:", last)
         ls = LibraryScreen(app)
         app.push(ls)
         ls.apply_resume()

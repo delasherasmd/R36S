@@ -85,4 +85,5 @@ done
 
 rm -f "$LAUNCH" "$LAUNCH.rom"
 printf "\033c" > /dev/tty1 2>/dev/null
-exit 0
+# 0 = salida normal; otro valor = Vapor fallo (queda en data/boot.log al arrancar)
+exit $RC

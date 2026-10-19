@@ -91,6 +91,17 @@ PERSONALIZAR (START > Personalizar...)
   directo a EmulationStation y la opcion se desactiva sola.
 
 
+SILENCIO, VIDEOS Y ARRANQUE
+---------------------------
+- Silenciar toda la consola (tambien los juegos): START > Silenciar consola.
+  Se quita igual, o subiendo el volumen con los botones.
+- Si sale un video/imagen al abrir o cerrar juegos: en EmulationStation
+  START > UI SETTINGS > GAME LOADING IMAGE MODE > NONE
+  (o renombra la carpeta EASYROMS\\launchimages).
+- Si Vapor no se abre al encender: abre Vapor una vez desde Ports (se actualiza
+  solo) y revisa ports\\vapor\\data\\boot.log
+
+
 USO RAPIDO
 ----------
 L1/R1 pestanas - A ficha/JUGAR - B atras - X listas - Y favorito

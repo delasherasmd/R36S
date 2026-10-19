@@ -1076,6 +1076,11 @@ class LibraryScreen(Screen):
         v = self.view()
         items = [{"label": T("search"), "fn": self.search, "icon": "search"},
                  {"label": T("customize"), "fn": self.customize, "icon": "gear"}]
+        if app.audio is not None and app.audio.available:
+            items.append({"label": lambda: T("menu_unmute") if app.audio.muted
+                          else T("menu_mute"),
+                          "fn": lambda: app.set_system_mute(not app.audio.muted), "keep": True,
+                          "icon": "mute" if not app.audio.muted else "speaker"})
         if isinstance(v, GameView) and v.kind != "recent":
             key, opts = ("sort_list", SORTS_LIST) if v.ordered() else ("sort", SORTS)
 

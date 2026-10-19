@@ -108,6 +108,7 @@ class App(object):
         self.music = None
         self.backlight = None
         self.autostart = None
+        self.audio = None
 
     # ----------------------------------------------------------- pantallas
     def push(self, scr):
@@ -138,6 +139,30 @@ class App(object):
     def quit(self):
         self.result = None
         self.running = False
+
+    # ------------------------------------------------------------ silencio
+    def set_system_mute(self, on):
+        a = self.audio
+        if a is None or not a.available:
+            self.toast(T("no_amixer"))
+            return
+        if not a.set_muted(on):
+            self.toast(T("no_amixer"))
+            return
+        self.on_mute_changed()
+        self.toast(T("muted_on") if a.muted else T("muted_off"))
+        self.dirty = True
+
+    def on_mute_changed(self):
+        """Con la consola en silencio se para la musica de Vapor; al quitarlo vuelve."""
+        m = self.music
+        if m is None:
+            return
+        if self.audio is not None and self.audio.muted:
+            if m.enabled:
+                m.set_enabled(False)
+        elif self.store.get("music") and not m.enabled:
+            m.set_enabled(True)
 
     # ------------------------------------------------------------- lanzar
     def launch(self, game):
@@ -223,6 +248,11 @@ class App(object):
         """Reloj y bateria arriba a la derecha. Devuelve la x donde empiezan."""
         g = self.g
         x = right
+        if self.audio is not None and self.audio.muted:
+            s = g.S(14)
+            x -= s
+            g.icon("mute", x, cy - s // 2, s, C.RED)
+            x -= g.S(8)
         val = self.battery.read(self.now)
         if val is not None:
             bw, bh = g.S(20), g.S(10)
@@ -324,6 +354,13 @@ class App(object):
             self.dirty = True
         if self.music is not None and self.music.tick(self.now):
             self.dirty = True
+        # el volumen puede cambiar con los botones de la consola: se mira cada 4 s
+        if self.audio is not None and self.audio.available and \
+                self.now - self.audio.last_check > 4000:
+            was = self.audio.muted
+            if self.audio.refresh(self.now) != was:
+                self.on_mute_changed()
+                self.dirty = True
         if animating:
             self.dirty = True
         if self.toast_text and self.now > self.toast_until:
