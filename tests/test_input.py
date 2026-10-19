@@ -78,6 +78,14 @@ class InputTest(unittest.TestCase):
         inp.joys[1] = (None, inp._binding_for("GO-Super Gamepad", "abc"))
         self.assertEqual(inp.handle(Ev(sdl.SDL_JOYBUTTONDOWN, 1, 1), 0), ["b"])
 
+    def test_missing_triggers_completed_for_known_pad(self):
+        # es_input.cfg sin L2/R2 configurados: se completan con los del R36S
+        b = inp_binding = inputmap.Input([self.path])._binding_for("GO-Super Gamepad", "abc")
+        self.assertEqual(b.buttons[6], "l2")
+        self.assertEqual(b.buttons[7], "r2")
+        self.assertEqual(b.buttons[12], "select")  # no se pisa lo configurado
+        _ = inp_binding
+
     def test_known_default_for_r36s(self):
         b = inputmap._default_binding("GO-Super Gamepad")
         self.assertEqual(b.buttons[13], "start")

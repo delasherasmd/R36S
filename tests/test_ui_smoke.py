@@ -151,6 +151,52 @@ class UISmokeTest(unittest.TestCase):
         self.assertEqual(app2.top().game.path, first)
         self.assertEqual(ls2.tabs[ls2.tab], "list:Rpg")
 
+    def _list_with_games(self):
+        st = self.store
+        st.create("Mi lista", pinned=True)
+        order = ["Zelda Minish", "Advance Wars", "Metroid Fusion", "Golden Sun"]
+        for name in order:
+            st.add("Mi lista", [g.path for g in self.lib.games if g.name == name][0])
+        st.save()
+        self.ls.build_tabs()
+        self.ls.tab = self.ls.tabs.index("list:Mi lista")
+        v = self.ls.view()
+        v.refresh()
+        return v, order
+
+    def names(self, key="Mi lista"):
+        return [self.lib.by_path[p].name for p in self.store.games_in(key)]
+
+    def test_reorder_dialog_keeps_priority_when_sorted_by_name(self):
+        # Fallo real: con la lista ordenada por nombre, "Ordenar juegos" guardaba el
+        # orden alfabetico como prioridad y no se veia ningun cambio.
+        from views import reorder_games
+        v, order = self._list_with_games()
+        self.store.set("sort_list", "name")
+        self.ls.refresh_all()
+        v.select_path([g.path for g in v.games if g.name == "Metroid Fusion"][0])
+        reorder_games(self.app, v)
+        dlg = self.app.top()
+        self.assertEqual([r[1].split("  ")[0] for r in dlg.rows()], order)
+        self.assertEqual(dlg.sel, 2)  # empieza en el juego seleccionado
+        self.press("a", "up", "a")
+        self.assertEqual(self.names(), ["Zelda Minish", "Metroid Fusion", "Advance Wars",
+                                        "Golden Sun"])
+        self.assertEqual(v.sort_mode(), "priority")
+        self.assertEqual([g.name for g in v.games], self.names())
+
+    def test_l2_r2_in_list_sorted_by_name(self):
+        v, order = self._list_with_games()
+        self.store.set("sort_list", "name")
+        self.ls.refresh_all()
+        v.sel = 0
+        self.press("r2")  # primero muestra tu orden, sin mover nada
+        self.assertEqual(self.names(), order)
+        self.assertEqual(v.sort_mode(), "priority")
+        v.sel = 0
+        self.press("r2")
+        self.assertEqual(self.names(), [order[1], order[0]] + order[2:])
+
     def test_customize_panel_without_services(self):
         # sin musica, sin brillo y sin arranque (como en un PC): no debe fallar
         from settings_ui import SettingsScreen

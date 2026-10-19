@@ -301,8 +301,15 @@ class GameView(object):
                     self.sel = n - 1
             return True
         if act in ("l2", "r2") and n:
-            if self.by_priority():
-                self.move_priority(1 if act == "r2" else -1)
+            if self.ordered():
+                if not self.by_priority():
+                    # primero se muestra tu orden; el siguiente L2/R2 ya mueve
+                    self.app.store.set("sort_list", "priority")
+                    self.app.store.save()
+                    self.ls.refresh_all()
+                    self.app.toast(T("now_priority"), 1800)
+                else:
+                    self.move_priority(1 if act == "r2" else -1)
             else:
                 self.jump(1 if act == "r2" else -1)
             return True
@@ -333,7 +340,8 @@ class GameView(object):
         if game is None:
             return
         st = self.app.store
-        visible = [g.path for g in self.games]
+        # siempre sobre tu orden guardado, nunca sobre el orden por nombre, etc.
+        visible = [g.path for g in priority_games(self.app, self)]
         if self.kind == "fav":
             ok = st.move_favorite(visible, game.path, d, index)
         else:
@@ -508,7 +516,7 @@ class GameView(object):
         h = []
         if self.current() is not None:
             h += [("A", T("h_details")), ("X", T("h_cats"))]
-            if self.by_priority() and len(self.games) > 1:
+            if self.ordered() and len(self.games) > 1:
                 h.append(("L2/R2", T("h_priority")))
             else:
                 h.append(("Y", T("h_fav")))
@@ -877,16 +885,31 @@ def reorder_lists(app):
     app.push(ReorderDialog(app, T("reorder_lists_title"), items, move, T("reorder_sub")))
 
 
+def priority_games(app, view):
+    """Juegos de una lista (o Favoritos) en tu orden de prioridad guardado,
+    sea cual sea el orden con el que se esten mostrando."""
+    lib, st = app.lib, app.store
+    if view.kind == "fav":
+        return st.favorites_ordered(lib.games)
+    return [lib.by_path[p] for p in st.games_in(view.key) if p in lib.by_path]
+
+
 def reorder_games(app, view):
     """Igual, pero para los juegos de una lista o de Favoritos."""
     st = app.store
+    current = view.current()
+    # la lista pasa a mostrarse por prioridad para que se vea lo que se ordena
+    if view.sort_mode() != "priority":
+        st.set("sort_list", "priority")
+        st.save()
+        refresh_library(app)
 
     def items():
         return [(gm.path, "%s  \u00b7  %s" % (gm.name, gm.system.name.upper()))
-                for gm in view.games]
+                for gm in priority_games(app, view)]
 
     def move(path, d):
-        visible = [gm.path for gm in view.games]
+        visible = [gm.path for gm in priority_games(app, view)]
         if view.kind == "fav":
             ok = st.move_favorite(visible, path, d)
         else:
@@ -894,11 +917,14 @@ def reorder_games(app, view):
         if ok:
             st.save()
             view.refresh()
+            view.select_path(path)
         return ok
 
     title = T("reorder_games_title", T("title_fav") if view.kind == "fav" else view.key)
     dlg = ReorderDialog(app, title, items, move, T("reorder_sub"))
-    dlg.sel = view.sel
+    paths = [k for k, _l in items()]
+    if current is not None and current.path in paths:
+        dlg.sel = paths.index(current.path)
     app.push(dlg)
 
 
@@ -1178,7 +1204,7 @@ class LibraryScreen(Screen):
     def rescan(self):
         app = self.app
         g = self.g
-        g.vgradient(0, 0, g.w, g.h, C.BG_TOP, C.BG_BOTTOM)
+        g.background()
         g.text(T("loading"), g.w // 2, g.h // 2, 16, C.TEXT, bold=True, align="center",
                valign="middle")
         sdl.SDL_RenderPresent(g.ren)
@@ -1251,7 +1277,7 @@ class LibraryScreen(Screen):
 
     def draw(self):
         g = self.g
-        g.vgradient(0, 0, g.w, g.h, C.BG_TOP, C.BG_BOTTOM)
+        g.background()
         self.view().draw()
         # barra superior con pestanas
         bh = g.S(C.TOPBAR_H)
@@ -1347,7 +1373,7 @@ class DetailScreen(Screen):
         st = app.store
         game = self.game
         W, H = g.w, g.h
-        g.vgradient(0, 0, W, H, C.BG_TOP, C.BG_BOTTOM)
+        g.background()
         hero_h = g.S(262)
         hero = game.hero()
         ent = g.image(hero, W, W) if hero else None
@@ -1406,9 +1432,9 @@ class DetailScreen(Screen):
         if focused == "play":
             g.round_rect(bx - g.S(3), btn_y - g.S(3), btn_w + g.S(6), btn_h + g.S(6), g.S(8),
                          C.FOCUS)
-        g.round_rect(bx, btn_y, btn_w, btn_h, g.S(6), C.GREEN_BOTTOM)
+        g.round_rect(bx, btn_y, btn_w, btn_h, g.S(6), C.PLAY_BOTTOM)
         g.push_clip(bx, btn_y, btn_w, btn_h)
-        g.fade(bx, btn_y, btn_w, btn_h, C.GREEN_TOP, "top")
+        g.fade(bx, btn_y, btn_w, btn_h, C.PLAY_TOP, "top")
         g.pop_clip()
         g.icon("play", bx + g.S(22), btn_y + (btn_h - g.S(16)) // 2, g.S(16), C.TEXT)
         g.text(T("play"), bx + g.S(46), btn_y + btn_h // 2, 15, C.TEXT, bold=True,

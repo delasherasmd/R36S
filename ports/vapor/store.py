@@ -17,7 +17,7 @@ DEFAULT_SETTINGS = {
     "lang": "es",
     "show_genres": True,
     # personalizacion
-    "theme": "steam",
+    "theme": "vapor",
     "accent": "auto",
     "tile_size": "normal",
     "brightness": None,      # None = no tocar el brillo del sistema

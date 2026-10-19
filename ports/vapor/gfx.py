@@ -7,6 +7,7 @@ import threading
 from collections import OrderedDict
 
 import sdl
+import theme as C
 
 ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 WHITE = (255, 255, 255, 255)
@@ -163,6 +164,7 @@ class Gfx(object):
         self.target_ok = bool(sdl.SDL_RenderTargetSupported(ren))
         self._grad = None
         self._clip_stack = []
+        self.statics = {}  # imagenes fijas de assets (fondos, logo)
         self._load_icons()
 
     # ------------------------------------------------------------------ util
@@ -320,6 +322,46 @@ class Gfx(object):
                        sdl.rect(x1 - 2 * sp, y0 + 2 * sp, 2 * sp, mh))
         if mw > 0 and mh > 0:
             self.fill(x0 + 2 * sp, y0 + 2 * sp, mw, mh, (0, 0, 0, alpha))
+
+    def static(self, name):
+        """Textura de una imagen de assets/ (fondos, logo). None si no se puede."""
+        if name in self.statics:
+            return self.statics[name]
+        ent = None
+        path = os.path.join(ASSETS, name)
+        if sdl.IMG_Load is not None and os.path.isfile(path):
+            surf = sdl.IMG_Load(_enc(path))
+            if surf:
+                tex = sdl.SDL_CreateTextureFromSurface(self.ren, surf)
+                if tex:
+                    ent = (tex, surf.contents.w, surf.contents.h)
+                sdl.SDL_FreeSurface(surf)
+        self.statics[name] = ent
+        return ent
+
+    def draw_static(self, name, x, y, w, h, alpha=255):
+        ent = self.static(name)
+        if not ent:
+            return False
+        self.draw_image(ent, x, y, w, h, mode="cover", alpha=alpha)
+        return True
+
+    def background(self):
+        """Fondo del tema: imagen (tema Vapor) o degradado."""
+        if C.BG_IMAGE and self.draw_static(C.BG_IMAGE, 0, 0, self.w, self.h):
+            return
+        self.vgradient(0, 0, self.w, self.h, C.BG_TOP, C.BG_BOTTOM)
+
+    def text_spaced(self, text, cx, y, size, c=WHITE, bold=False, spacing=6):
+        """Texto centrado con letras separadas (como el 'CARGANDO' del logo)."""
+        sp = self.S(spacing)
+        widths = [self.text_w(ch, size, bold) for ch in text]
+        total = sum(widths) + sp * (len(text) - 1)
+        x = cx - total // 2
+        for ch, w in zip(text, widths):
+            if ch != " ":
+                self.text(ch, x, y, size, c, bold=bold)
+            x += w + sp
 
     def icon(self, name, x, y, size, c=WHITE):
         tex = self.icons.get(name)
@@ -555,6 +597,9 @@ class Gfx(object):
                 sdl.SDL_DestroyTexture(ent[0])
         for tex in self.icons.values():
             sdl.SDL_DestroyTexture(tex)
+        for ent in self.statics.values():
+            if ent and ent[0]:
+                sdl.SDL_DestroyTexture(ent[0])
         if self._grad:
             sdl.SDL_DestroyTexture(self._grad)
         for f in self.fonts.values():

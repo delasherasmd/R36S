@@ -118,6 +118,24 @@ def _default_binding(name):
     return b
 
 
+def _complete(binding, name):
+    """Si en es_input.cfg faltan botones (p. ej. L2/R2 sin configurar) y el mando es
+    uno conocido, se completan con sus valores de fabrica sin pisar nada."""
+    known = None
+    for k, v in _KNOWN.items():
+        if name == k or (name and k.lower() in name.lower()):
+            known = v
+            break
+    if known is None:
+        return binding
+    mapped = set(binding.buttons.values()) | set(binding.hats.values()) | \
+        set(binding.axes.values())
+    for act, btn in known.items():
+        if act not in mapped and btn not in binding.buttons:
+            binding.buttons[btn] = act
+    return binding
+
+
 class Input(object):
     REPEAT_DELAY = 360
     REPEAT_RATE = 70
@@ -160,10 +178,10 @@ class Input(object):
     def _binding_for(self, name, guid):
         for n, g, b in self.configs:
             if guid and g == guid:
-                return b
+                return _complete(b, name)
         for n, g, b in self.configs:
             if n and n == name:
-                return b
+                return _complete(b, name)
         if name in _KNOWN or any(k.lower() in (name or "").lower() for k in _KNOWN):
             return _default_binding(name)
         if self.configs:

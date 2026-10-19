@@ -442,7 +442,7 @@ class KeyboardDialog(Screen):
             focused = self.row == 4 and self.col // 2 == i
             col = C.PANEL_HI
             if k == "ok":
-                col = C.GREEN_BOTTOM
+                col = C.PLAY_BOTTOM
             if k == "shift" and self.upper:
                 col = C.SEL
             if focused:

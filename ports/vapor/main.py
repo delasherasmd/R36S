@@ -97,21 +97,26 @@ def create_display(sdl, args, log):
 
 
 def draw_loading(sdl, g, frac, label):
+    """Pantalla de carga: el logo de Vapor (assets/splash.jpg) con una barra de neon."""
     import theme as C
     from strings import T
-    g.vgradient(0, 0, g.w, g.h, C.BG_TOP, C.BG_BOTTOM)
-    cx, cy = g.w // 2, g.h // 2 - g.S(20)
-    s = g.S(44)
-    g.icon("circle", cx - s // 2, cy - s - g.S(30), s, C.ACCENT)
-    g.icon("play", cx - g.S(9), cy - s - g.S(30) + g.S(12), g.S(20), C.TEXT)
-    g.text("VAPOR", cx, cy - g.S(10), 30, C.TEXT, bold=True, align="center")
-    g.text(T("loading"), cx, cy + g.S(32), 12, C.TEXT2, align="center")
-    bw, bh = g.S(240), g.S(4)
-    bx, by = cx - bw // 2, cy + g.S(56)
-    g.round_rect(bx, by, bw, bh, bh // 2, (255, 255, 255, 30))
-    g.round_rect(bx, by, max(bh, int(bw * frac)), bh, bh // 2, C.ACCENT)
-    if label:
-        g.text(label, cx, by + g.S(14), 10, C.TEXT3, align="center", max_w=bw + g.S(80))
+    cx = g.w // 2
+    if g.draw_static("splash.jpg", 0, 0, g.w, g.h):
+        # la imagen ya trae 'CARGANDO'; la barra va justo encima, sobre la rejilla
+        bw, bh = g.S(200), g.S(4)
+        bx, by = cx - bw // 2, g.h - g.S(58)
+        g.round_rect(bx - g.S(3), by - g.S(3), bw + g.S(6), bh + g.S(6), g.S(5), (10, 2, 24, 200))
+    else:
+        g.background()
+        g.text("VAPOR", cx, g.h // 2 - g.S(40), 30, C.TEXT, bold=True, align="center")
+        g.text(T("loading"), cx, g.h // 2, 12, C.TEXT2, align="center")
+        bw, bh = g.S(240), g.S(4)
+        bx, by = cx - bw // 2, g.h // 2 + g.S(28)
+    g.round_rect(bx, by, bw, bh, bh // 2, (255, 255, 255, 40))
+    fw = max(bh, int(bw * frac))
+    g.round_rect(bx, by, fw, bh, bh // 2, C.ACCENT)
+    g.fill(bx + bh // 2, by, max(0, fw - bh), max(1, bh // 3), (255, 255, 255, 90))
+    _ = label
     sdl.SDL_RenderPresent(g.ren)
     # mantener vivo el bucle de eventos durante la carga
     ev = sdl.new_event_buffer()
@@ -121,7 +126,7 @@ def draw_loading(sdl, g, frac, label):
 
 def show_error(sdl, g, msg):
     import theme as C
-    g.vgradient(0, 0, g.w, g.h, C.BG_TOP, C.BG_BOTTOM)
+    g.background()
     g.text("Vapor: error", g.w // 2, g.S(120), 20, C.RED, bold=True, align="center")
     for i, l in enumerate(g.wrap(msg, 12, g.w - g.S(60), max_lines=10)):
         g.text(l, g.w // 2, g.S(160) + i * g.line_h(12), 12, C.TEXT, align="center")
@@ -167,6 +172,13 @@ def main(argv=None):
         g = Gfx(ren, w, h)
         store = Store(args.data)
         set_lang(store.get("lang"))
+        # el tema Vapor (colores del logo) pasa a ser el principal; quien tenia el
+        # tema por defecto anterior (Steam) lo recibe una vez
+        if store.get("theme_v") != 2:
+            if store.get("theme") in (None, "steam"):
+                store.set("theme", "vapor")
+            store.set("theme_v", 2)
+            store.save()
         apply_theme(store)
 
         # musica de fondo (empieza ya, mientras carga la biblioteca)

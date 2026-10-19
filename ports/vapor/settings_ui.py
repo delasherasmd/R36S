@@ -126,7 +126,8 @@ class SettingsScreen(Screen):
             self.change(row, 1)
         elif k == "reset":
             st = self.app.store
-            for key, val in (("theme", "steam"), ("accent", "auto"), ("tile_size", "normal")):
+            for key, val in (("theme", C.DEFAULT_THEME), ("accent", "auto"),
+                             ("tile_size", "normal")):
                 st.set(key, val)
             apply_theme(st)
             self.ls.relayout()
@@ -326,9 +327,7 @@ class SettingsScreen(Screen):
             return None
         st = self.app.store
         if row["key"] == "theme":
-            for key, _n, top, _b, _bar, acc in C.PRESETS:
-                if key == st.get("theme"):
-                    return acc + (255,)
+            return C.preset(st.get("theme"))["accent"] + (255,)
         if row["key"] == "accent":
             return C.ACCENT
         return None

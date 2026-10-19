@@ -317,30 +317,74 @@ def main():
 
 
 def port_image():
-    """Imagen de Vapor para la lista de Ports de EmulationStation (gamelist.xml)."""
-    from PIL import ImageFont
-    fonts = os.path.join(OUT, "..", "fonts")
-    w, h = 480, 360
-    img = Image.new("RGBA", (w, h))
-    d = ImageDraw.Draw(img)
-    top, bottom = (33, 47, 66), (12, 17, 23)
-    for y in range(h):
-        t = y / float(h - 1)
-        d.line([(0, y), (w, y)], fill=tuple(int(top[i] + (bottom[i] - top[i]) * t)
-                                            for i in range(3)) + (255,))
-    # tarjetas de fondo, como una biblioteca
-    for i, x in enumerate(range(-30, w, 92)):
-        col = [(58, 76, 98), (44, 56, 72), (70, 92, 120)][i % 3]
-        d.rounded_rectangle([x, 244, x + 80, 352], radius=8, fill=col + (255,))
-    cx, cy, r = w // 2, 96, 50
-    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(26, 159, 255, 255))
-    d.polygon([(cx - 16, cy - 26), (cx + 28, cy), (cx - 16, cy + 26)], fill=(255, 255, 255, 255))
-    fb = ImageFont.truetype(os.path.join(fonts, "Inter-Bold.otf"), 54)
-    fr = ImageFont.truetype(os.path.join(fonts, "Inter-Regular.otf"), 20)
-    d.text((cx, 190), "VAPOR", font=fb, fill=(255, 255, 255, 255), anchor="ms")
-    d.text((cx, 220), "Biblioteca estilo Steam", font=fr, fill=(165, 177, 190, 255),
-           anchor="ms")
+    """Imagen de Vapor para la lista de Ports (gamelist.xml): el logo de splash.jpg."""
+    src = os.path.join(OUT, "..", "splash.jpg")
+    img = Image.open(src).convert("RGB").resize((480, 360), Image.LANCZOS)
     img.save(os.path.join(OUT, "..", "vapor-port.png"), optimize=True)
+    vapor_background()
+
+
+def vapor_background():
+    """Fondo del tema Vapor: cielo synthwave, sol con franjas y rejilla de neon,
+    oscurecido para que las caratulas se lean bien encima."""
+    from PIL import ImageFilter
+    W, H, HZ = 640, 480, 300
+    img = Image.new("RGB", (W, H))
+    d = ImageDraw.Draw(img)
+    top, low = (20, 3, 48), (118, 28, 112)
+    for y in range(HZ):
+        t = (y / float(HZ - 1)) ** 1.6
+        d.line([(0, y), (W, y)], fill=tuple(int(top[i] + (low[i] - top[i]) * t) for i in range(3)))
+    floor_top, floor_bottom = (40, 6, 60), (14, 3, 32)
+    for y in range(HZ, H):
+        t = (y - HZ) / float(H - HZ - 1)
+        d.line([(0, y), (W, y)], fill=tuple(int(floor_top[i] + (floor_bottom[i] - floor_top[i]) * t)
+                                            for i in range(3)))
+    # halo del sol
+    glow = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(glow).ellipse([320 - 210, 250 - 170, 320 + 210, 250 + 170], fill=150)
+    glow = glow.filter(ImageFilter.GaussianBlur(60))
+    img = Image.composite(Image.new("RGB", (W, H), (255, 60, 170)), img, glow)
+    d = ImageDraw.Draw(img)
+    # sol con degradado y franjas
+    cx, cy, r = 320, 245, 125
+    sun = Image.new("RGB", (W, H))
+    sd = ImageDraw.Draw(sun)
+    for y in range(cy - r, cy + r):
+        t = (y - (cy - r)) / float(2 * r)
+        sd.line([(0, y), (W, y)], fill=(int(250 - 10 * t), int(200 - 130 * t), int(70 + 60 * t)))
+    mask = Image.new("L", (W, H), 0)
+    md = ImageDraw.Draw(mask)
+    md.ellipse([cx - r, cy - r, cx + r, cy + r], fill=255)
+    md.rectangle([0, HZ, W, H], fill=0)
+    gap_y, gap_h = cy + 5, 3
+    while gap_y < HZ:
+        md.rectangle([0, gap_y, W, gap_y + gap_h], fill=0)
+        gap_y += 11 + gap_h
+        gap_h += 1
+    img.paste(sun, (0, 0), mask)
+    d = ImageDraw.Draw(img)
+    # rejilla en perspectiva
+    line = (214, 62, 178)
+    d.line([(0, HZ), (W, HZ)], fill=(255, 120, 210), width=2)
+    k = 1
+    while True:
+        y = HZ + int(3 * k * k)
+        if y >= H:
+            break
+        d.line([(0, y), (W, y)], fill=line, width=1 if k < 6 else 2)
+        k += 1
+    for i in range(-14, 15):
+        d.line([(320 + i * 20, HZ), (320 + i * 120, H)], fill=line, width=1)
+    img = img.filter(ImageFilter.GaussianBlur(1.2))
+    # oscurecer (mas arriba, donde van las barras) para que no moleste al leer
+    dark = Image.new("RGB", (W, H), (8, 2, 20))
+    alpha = Image.new("L", (W, H))
+    ad = ImageDraw.Draw(alpha)
+    for y in range(H):
+        ad.line([(0, y), (W, y)], fill=int(175 - 40 * (y / float(H))))
+    img = Image.composite(dark, img, alpha)
+    img.save(os.path.join(OUT, "..", "bg_vapor.jpg"), quality=88, optimize=True)
 
 
 if __name__ == "__main__":

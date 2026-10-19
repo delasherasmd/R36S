@@ -184,17 +184,23 @@ class App(object):
         self.running = False
 
     def draw_launching(self, game):
+        """Pantalla 'Iniciando' con la estetica del logo."""
         g = self.g
-        g.vgradient(0, 0, g.w, g.h, C.BG_TOP, C.BG_BOTTOM)
-        ent = None
-        hero = game.hero()
-        if hero:
-            # carga sincrona rapida de la imagen ya en cache si existe
-            ent = g.image(hero, g.w, g.h)
-        if ent:
-            g.draw_image(ent, 0, 0, g.w, g.h, mode="cover", alpha=70)
-        g.text(T("launching", game.name), g.w // 2, g.h // 2, 18, C.TEXT, bold=True,
-               align="center", valign="middle", max_w=g.w - g.S(40))
+        if g.draw_static("splash.jpg", 0, 0, g.w, g.h):
+            g.fill(0, 0, g.w, g.h, (10, 2, 24, 150))
+            # tapa el 'CARGANDO' de la imagen
+            g.fade(0, g.h - g.S(90), g.w, g.S(90), (10, 2, 24, 255), "bottom")
+        else:
+            g.background()
+        cy = g.h // 2
+        g.text_spaced(T("launching_title"), g.w // 2, cy - g.S(34), 12, C.ACCENT_SOFT, bold=True,
+                      spacing=7)
+        lines = g.wrap(game.name, 22, g.w - g.S(60), max_lines=2, bold=True)
+        lh = g.line_h(22, True)
+        for i, l in enumerate(lines):
+            g.text(l, g.w // 2, cy - g.S(8) + i * lh, 22, C.TEXT, bold=True, align="center")
+        y = cy - g.S(8) + len(lines) * lh + g.S(10)
+        g.text(game.system.fullname.upper(), g.w // 2, y, 10, C.ACCENT, bold=True, align="center")
         sdl.SDL_RenderPresent(g.ren)
 
     # -------------------------------------------------------------- dibujo

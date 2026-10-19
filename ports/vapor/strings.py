@@ -29,6 +29,7 @@ ES = {
     "game_top": "Poner este juego el #1",
     "priority_hint": "Usa L2 / R2 para cambiar la prioridad.",
     "reorder_lists": "Ordenar listas por prioridad…",
+    "now_priority": "Mostrando tu orden (prioridad). Usa L2 / R2 para mover el juego.",
     "reorder_games": "Ordenar juegos de «%s»…",
     "reorder_favs": "Ordenar Favoritos…",
     "reorder_lists_title": "Prioridad de tus listas",
@@ -194,6 +195,7 @@ ES = {
     "loading": "Cargando biblioteca…",
     "reading": "Leyendo %s…",
     "launching": "Iniciando %s…",
+    "launching_title": "INICIANDO",
     "manage_cat": "Opciones de «%s»",
     "help_lines": [
         ("D-Pad", "Moverse por la biblioteca"),
@@ -239,6 +241,7 @@ EN = {
     "game_top": "Make this game #1",
     "priority_hint": "Use L2 / R2 to change priority.",
     "reorder_lists": "Order lists by priority…",
+    "now_priority": "Showing your order (priority). Use L2 / R2 to move the game.",
     "reorder_games": "Order games in “%s”…",
     "reorder_favs": "Order Favorites…",
     "reorder_lists_title": "Your lists' priority",
@@ -404,6 +407,7 @@ EN = {
     "loading": "Loading library…",
     "reading": "Reading %s…",
     "launching": "Starting %s…",
+    "launching_title": "LAUNCHING",
     "manage_cat": "“%s” options",
     "help_lines": [
         ("D-Pad", "Move around the library"),

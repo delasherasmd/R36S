@@ -6,29 +6,36 @@ interfaz las lee al dibujar, asi que un cambio de tema se ve al instante."""
 import colorsys
 import zlib
 
-# Temas: fondo arriba, fondo abajo, barras y color de acento.
+# Temas. Cada uno: fondo arriba/abajo, barras, acento y, opcionalmente, acento
+# secundario, color del foco, colores del boton JUGAR e imagen de fondo.
+# "vapor" es el tema principal (colores del logo: morado, rosa neon, cian y el sol).
 PRESETS = [
+    ("vapor", {"es": "Vapor", "en": "Vapor"},
+     dict(top=(40, 10, 66), bottom=(14, 3, 32), bar=(20, 4, 44), accent=(236, 72, 168),
+          soft=(0, 214, 232), focus=(120, 236, 255),
+          play=((250, 190, 70), (236, 78, 128)), bg="bg_vapor.jpg")),
     ("steam", {"es": "Steam", "en": "Steam"},
-     (33, 47, 66), (12, 17, 23), (16, 21, 28), (26, 159, 255)),
+     dict(top=(33, 47, 66), bottom=(12, 17, 23), bar=(16, 21, 28), accent=(26, 159, 255))),
     ("midnight", {"es": "Medianoche", "en": "Midnight"},
-     (30, 31, 36), (6, 6, 8), (13, 13, 16), (122, 162, 255)),
+     dict(top=(30, 31, 36), bottom=(6, 6, 8), bar=(13, 13, 16), accent=(122, 162, 255))),
     ("purple", {"es": "Morado", "en": "Purple"},
-     (50, 30, 76), (14, 8, 22), (22, 13, 33), (178, 102, 255)),
+     dict(top=(50, 30, 76), bottom=(14, 8, 22), bar=(22, 13, 33), accent=(178, 102, 255))),
     ("ocean", {"es": "Océano", "en": "Ocean"},
-     (14, 54, 68), (4, 16, 22), (8, 24, 31), (0, 200, 220)),
+     dict(top=(14, 54, 68), bottom=(4, 16, 22), bar=(8, 24, 31), accent=(0, 200, 220))),
     ("emerald", {"es": "Esmeralda", "en": "Emerald"},
-     (18, 60, 48), (5, 18, 14), (9, 26, 21), (46, 204, 113)),
+     dict(top=(18, 60, 48), bottom=(5, 18, 14), bar=(9, 26, 21), accent=(46, 204, 113))),
     ("crimson", {"es": "Carmesí", "en": "Crimson"},
-     (72, 22, 32), (20, 6, 9), (30, 10, 14), (255, 72, 92)),
+     dict(top=(72, 22, 32), bottom=(20, 6, 9), bar=(30, 10, 14), accent=(255, 72, 92))),
     ("amber", {"es": "Ámbar", "en": "Amber"},
-     (68, 42, 16), (20, 12, 5), (28, 17, 8), (255, 152, 0)),
+     dict(top=(68, 42, 16), bottom=(20, 12, 5), bar=(28, 17, 8), accent=(255, 152, 0))),
     ("pink", {"es": "Rosa", "en": "Pink"},
-     (74, 28, 60), (22, 8, 18), (32, 12, 26), (255, 105, 180)),
+     dict(top=(74, 28, 60), bottom=(22, 8, 18), bar=(32, 12, 26), accent=(255, 105, 180))),
     ("gameboy", {"es": "Game Boy", "en": "Game Boy"},
-     (48, 64, 24), (14, 20, 7), (22, 30, 11), (155, 188, 15)),
+     dict(top=(48, 64, 24), bottom=(14, 20, 7), bar=(22, 30, 11), accent=(155, 188, 15))),
     ("graphite", {"es": "Grafito", "en": "Graphite"},
-     (54, 56, 61), (17, 18, 20), (25, 26, 29), (190, 198, 208)),
+     dict(top=(54, 56, 61), bottom=(17, 18, 20), bar=(25, 26, 29), accent=(190, 198, 208))),
 ]
+DEFAULT_THEME = "vapor"
 
 ACCENTS = [
     ("auto", {"es": "Del tema", "en": "Theme"}, None),
@@ -53,7 +60,8 @@ TILE_SIZES = [
 
 # Valores del tema activo (los rellena apply)
 BG_TOP = BG_BOTTOM = BAR = PANEL = PANEL_HI = DIALOG = SEL = None
-ACCENT = ACCENT_SOFT = None
+ACCENT = ACCENT_SOFT = FOCUS = PLAY_TOP = PLAY_BOTTOM = None
+BG_IMAGE = None
 TILE_MIN = 108
 
 BAR_LINE = (255, 255, 255, 18)
@@ -63,8 +71,6 @@ TEXT = (236, 240, 244, 255)
 TEXT2 = (165, 177, 190, 255)
 TEXT3 = (112, 125, 140, 255)
 DARK_TEXT = (18, 22, 28, 255)
-
-FOCUS = (255, 255, 255, 255)
 
 GREEN_TOP = (112, 180, 30, 255)
 GREEN_BOTTOM = (74, 128, 18, 255)
@@ -109,14 +115,21 @@ def cycle(table, key, d):
     return keys[(i + d) % len(keys)]
 
 
-def apply(theme="steam", accent="auto", tile_size="normal"):
+def preset(key):
+    return _find(PRESETS, key)[2]
+
+
+def apply(theme=DEFAULT_THEME, accent="auto", tile_size="normal"):
     """Activa un tema. Se puede llamar en cualquier momento."""
     global BG_TOP, BG_BOTTOM, BAR, PANEL, PANEL_HI, DIALOG, SEL, ACCENT, ACCENT_SOFT, TILE_MIN
-    row = _find(PRESETS, theme)
-    top, bottom, bar, acc = row[2], row[3], row[4], row[5]
+    global FOCUS, PLAY_TOP, PLAY_BOTTOM, BG_IMAGE
+    p = preset(theme)
+    top, bottom, bar, acc = p["top"], p["bottom"], p["bar"], p["accent"]
+    soft = p.get("soft")
     acc_row = _find(ACCENTS, accent)
     if acc_row[2] is not None:
         acc = acc_row[2]
+        soft = None  # con un acento propio, el secundario sale de el
     white = (255, 255, 255, 255)
     BG_TOP = _rgba(top)
     BG_BOTTOM = _rgba(bottom)
@@ -126,7 +139,11 @@ def apply(theme="steam", accent="auto", tile_size="normal"):
     PANEL_HI = mix(_rgba(top), white, 0.10)
     SEL = mix(_rgba(top), white, 0.20)
     ACCENT = _rgba(acc)
-    ACCENT_SOFT = mix(_rgba(acc), white, 0.35)
+    ACCENT_SOFT = _rgba(soft) if soft else mix(_rgba(acc), white, 0.35)
+    FOCUS = _rgba(p.get("focus", (255, 255, 255)))
+    play = p.get("play", ((112, 180, 30), (74, 128, 18)))
+    PLAY_TOP, PLAY_BOTTOM = _rgba(play[0]), _rgba(play[1])
+    BG_IMAGE = p.get("bg")
     TILE_MIN = _find(TILE_SIZES, tile_size)[2]
 
 

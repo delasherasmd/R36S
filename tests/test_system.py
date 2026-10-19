@@ -346,10 +346,13 @@ class ThemeTest(unittest.TestCase):
         theme.apply()
 
     def test_all_presets_and_accents(self):
-        for key, _n, top, bottom, bar, acc in theme.PRESETS:
+        for key, _n, p in theme.PRESETS:
             theme.apply(key)
-            self.assertEqual(theme.BG_TOP[:3], top)
-            self.assertEqual(theme.ACCENT[:3], acc)
+            self.assertEqual(theme.BG_TOP[:3], p["top"])
+            self.assertEqual(theme.ACCENT[:3], p["accent"])
+            if p.get("bg"):
+                self.assertTrue(os.path.isfile(os.path.join(HERE, "..", "ports", "vapor",
+                                                            "assets", p["bg"])))
             for akey, _an, color in theme.ACCENTS:
                 theme.apply(key, akey)
                 if color is not None:
@@ -357,10 +360,11 @@ class ThemeTest(unittest.TestCase):
                 self.assertEqual(len(theme.DIALOG), 4)
 
     def test_cycle_and_unknown_values(self):
-        self.assertEqual(theme.cycle(theme.PRESETS, "steam", 1), theme.PRESETS[1][0])
-        self.assertEqual(theme.cycle(theme.PRESETS, "steam", -1), theme.PRESETS[-1][0])
+        self.assertEqual(theme.cycle(theme.PRESETS, "vapor", 1), theme.PRESETS[1][0])
+        self.assertEqual(theme.cycle(theme.PRESETS, "vapor", -1), theme.PRESETS[-1][0])
         theme.apply("no-existe", "tampoco", "x")
-        self.assertEqual(theme.BG_TOP[:3], theme.PRESETS[0][2])
+        self.assertEqual(theme.BG_TOP[:3], theme.PRESETS[0][2]["top"])
+        self.assertEqual(theme.PRESETS[0][0], theme.DEFAULT_THEME)
         theme.apply(tile_size="large")
         self.assertEqual(theme.TILE_MIN, 140)
 

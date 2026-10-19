@@ -7,7 +7,9 @@ pestañas, favoritos, tiempo de juego y **listas propias ordenadas por prioridad
 No sustituye a EmulationStation: es un “port” más que se abre desde **Ports**, usa **las mismas ROMs,
 imágenes y emuladores** que ya tienes y, al salir, vuelves a EmulationStation como siempre.
 
-![Biblioteca](docs/screenshots/01_biblioteca.png)
+| Pantalla de carga | Biblioteca |
+|---|---|
+| ![Carga](docs/screenshots/00_carga.png) | ![Biblioteca](docs/screenshots/01_biblioteca.png) |
 
 | Ficha del juego | Listas con prioridad |
 |---|---|
@@ -32,7 +34,9 @@ imágenes y emuladores** que ya tienes y, al salir, vuelves a EmulationStation c
 - **Búsqueda** con teclado en pantalla, **ordenar** por nombre, sistema, jugado recientemente,
   tiempo de juego o veces jugado.
 - **Importa** tus colecciones personalizadas de EmulationStation y puede **exportar** tus listas a EmulationStation.
-- **Personalizar** (START → Personalizar…): 10 temas de color, color de acento, tamaño de carátulas, con vista
+- **Estética Vapor** (synthwave): pantalla de carga con el logo, fondo con sol y rejilla de neón, botón JUGAR con
+  el degradado del sol. Es el tema principal.
+- **Personalizar** (START → Personalizar…): 11 temas de color, color de acento, tamaño de carátulas, con vista
   previa en vivo.
 - **Brillo de pantalla** propio, que funciona también en clones de la R36S donde el de EmulationStation no hace nada.
 - **Música de fondo** con tus canciones, en orden aleatorio.
@@ -122,7 +126,8 @@ Pulsa **X** sobre un juego (en la cuadrícula o en su ficha) y marca/desmarca la
 Un juego puede estar en varias listas a la vez.
 
 ### Ordenar los juegos de una lista (y Favoritos) por prioridad
-Dentro de una lista (o en Favoritos) cada carátula muestra su número **#1, #2, #3…**
+Dentro de una lista (o en Favoritos) cada carátula muestra su número **#1, #2, #3…** Ordenar siempre trabaja sobre
+**tu** orden: si la lista se estaba mostrando por nombre (u otro criterio), primero vuelve a mostrarse por prioridad.
 - **L2 / R2** sube o baja el juego seleccionado una posición, o
 - **START → Ordenar juegos de «lista»…**: con **A** coges un juego, con **↑ ↓** lo mueves y con **A** lo sueltas, o
 - **START → Poner este juego el #1**.
@@ -161,14 +166,14 @@ Con **← →** cambias cada opción y con **B** cierras (se guarda solo).
 
 | Opción | Qué hace |
 |---|---|
-| **Tema** | Steam, Medianoche, Morado, Océano, Esmeralda, Carmesí, Ámbar, Rosa, Game Boy y Grafito |
+| **Tema** | **Vapor** (el del logo), Steam, Medianoche, Morado, Océano, Esmeralda, Carmesí, Ámbar, Rosa, Game Boy y Grafito |
 | **Color de acento** | El color de la selección, pestañas y botones (o el del tema) |
 | **Carátulas** | Pequeñas, normales o grandes |
 | **Brillo** | Brillo de la pantalla (ver abajo) |
 | **Silenciar consola** | Quita todo el sonido, también en los juegos |
 | **Música de fondo / Volumen / Siguiente canción** | Tu música, en orden aleatorio |
 | **Abrir Vapor al encender** | Arrancar la consola directamente en Vapor |
-| **Restablecer colores** | Vuelve al tema Steam |
+| **Restablecer colores** | Vuelve al tema Vapor |
 
 ### Brillo
 En algunas R36S (sobre todo clones) la opción de brillo de EmulationStation aparece pero no hace nada: EmulationStation
