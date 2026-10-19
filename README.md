@@ -235,9 +235,14 @@ y se suma el tiempo jugado.
 - **Se reproduce el video del juego al volver a la lista de EmulationStation**: START → UI SETTINGS →
   GAMELIST VIEW STYLE → **DETAILED**, o quítale solo el sonido en START → SOUND SETTINGS → ENABLE VIDEO AUDIO → OFF.
   (En Vapor no hay videos.)
-- **Vapor no se abre al encender**: abre Vapor una vez desde Ports (actualiza el arranque), mira que en
-  *Personalizar* ponga **Abrir Vapor al encender: sí** y, si sigue sin abrirse, mándame `ports/vapor/data/boot.log`
-  y `ports/vapor/data/vapor.log`.
+- **Vapor no se abre al encender**:
+  1. Abre Vapor una vez desde Ports (así se actualiza el arranque).
+  2. En *Personalizar* debe poner **Abrir Vapor al encender: sí**; debajo verás el estado.
+  3. **Apaga la consola del todo** (en EmulationStation: START → QUIT → SHUTDOWN SYSTEM) y enciéndela. Si solo
+     pulsas el botón de encendido un momento, la consola entra en *reposo* y al despertar vuelve a lo que tenías en
+     pantalla (eso no es un arranque).
+  4. Si sigue sin abrirse, abre Vapor otra vez desde Ports y mándame el archivo
+     `ports/vapor/data/diagnostico.txt` (se abre con el Bloc de notas): ahí está todo lo necesario para arreglarlo.
 - **Desinstalar**: desactiva antes *Abrir Vapor al encender* si lo usaste; luego borra `ports/Vapor.sh` y la carpeta
   `ports/vapor`. No toca nada más del sistema.
 

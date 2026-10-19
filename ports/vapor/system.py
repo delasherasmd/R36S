@@ -213,37 +213,52 @@ def _bash_ok(text):
             pass
 
 
+def _run_cmd(cmd, use_sudo_fallback=True, timeout=10):
+    """Ejecuta un comando; si falla (p. ej. sin permiso), lo reintenta con 'sudo -n'."""
+    for c in ([cmd, ["sudo", "-n"] + cmd] if use_sudo_fallback else [cmd]):
+        try:
+            if subprocess.run(c, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              timeout=timeout).returncode == 0:
+                return True
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return False
+
+
 def _install_text(path, new_text):
-    """Copia new_text sobre path (con sudo si hace falta), conservando permisos y
-    guardando una copia de seguridad la primera vez."""
+    """Sustituye path por new_text (con sudo si hace falta), conservando permisos y
+    guardando una copia de seguridad la primera vez.
+
+    Se escribe un archivo nuevo y se renombra encima del original: asi el script
+    que ArkOS esta ejecutando en ese momento no se corrompe (bash lo sigue leyendo
+    del archivo antiguo)."""
     if not _bash_ok(new_text):
+        return False
+    try:
+        st = os.stat(path)
+    except OSError:
         return False
     tmpdir = "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
     fd, tmp = tempfile.mkstemp(prefix="vapor_es_", dir=tmpdir)
+    newp = path + ".vapor-new"
     try:
         with os.fdopen(fd, "w") as f:
             f.write(new_text)
         backup = path + ".vapor-backup"
-        cmds = []
-        if not os.path.exists(backup):
-            cmds.append(["cp", "-p", path, backup])
-        cmds.append(["cp", tmp, path])
-        for cmd in cmds:
-            ok = False
-            try:
-                ok = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                    timeout=10).returncode == 0
-            except (OSError, subprocess.SubprocessError):
-                ok = False
-            if not ok:
-                try:
-                    ok = subprocess.run(["sudo", "-n"] + cmd, stdout=subprocess.DEVNULL,
-                                        stderr=subprocess.DEVNULL, timeout=10).returncode == 0
-                except (OSError, subprocess.SubprocessError):
-                    ok = False
-            if not ok:
-                return False
-        return True
+        if not os.path.exists(backup) and not _run_cmd(["cp", "-p", path, backup]):
+            return False
+        mode = "%o" % (st.st_mode & 0o7777)
+        if not _run_cmd(["install", "-m", mode, "-o", str(st.st_uid), "-g", str(st.st_gid),
+                         tmp, newp]):
+            return False
+        if not _run_cmd(["mv", "-f", newp, path]):
+            _run_cmd(["rm", "-f", newp])
+            return False
+        try:
+            with open(path) as f:
+                return f.read() == new_text
+        except (IOError, OSError):
+            return False
     finally:
         try:
             os.remove(tmp)
@@ -325,6 +340,21 @@ class Autostart(object):
                                        _q(self.vapor_sh) not in text)
         return False
 
+    def status(self):
+        """Texto corto con el estado para el panel Personalizar."""
+        if not self.supported:
+            return "no_script" if not self.scripts else "no_vapor_sh"
+        if not os.path.isfile(self.flag):
+            return "off"
+        if not self.hook_installed():
+            return "not_installed"
+        last = self.last_boot()
+        if not last:
+            return "waiting"  # activado pero aun no se ha encendido la consola
+        if "desactivado" in last or ("codigo" in last and "codigo 0)" not in last):
+            return "failed"
+        return "ok"
+
     def last_boot(self):
         """Ultima linea de data/boot.log (o '')."""
         try:
@@ -340,6 +370,80 @@ class Autostart(object):
             os.remove(os.path.join(self.data_dir, "boot_pending"))
         except OSError:
             pass
+
+
+def _cmd_output(cmd, timeout=6):
+    try:
+        r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                           timeout=timeout)
+        return r.stdout.decode("utf-8", "replace").strip()
+    except (OSError, subprocess.SubprocessError) as e:
+        return "(no se pudo ejecutar %s: %s)" % (cmd[0], e)
+
+
+def write_diagnostics(path, autostart, extra_lines=()):
+    """Escribe data/diagnostico.txt con lo necesario para entender por que el
+    arranque directo en Vapor no funciona en una consola concreta."""
+    out = []
+    add = out.append
+    add("VAPOR - diagnostico del arranque")
+    add("fecha: %s" % _cmd_output(["date", "+%F %T"]))
+    add("usuario: %s  (HOME=%s)" % (_cmd_output(["id"]), os.environ.get("HOME", "")))
+    add("sudo sin contrasena: %s" % ("si" if _run_cmd(["sudo", "-n", "true"],
+                                                       use_sudo_fallback=False) else "NO"))
+    for l in extra_lines:
+        add(l)
+    if autostart is not None:
+        add("Vapor.sh: %s (existe: %s)" % (autostart.vapor_sh,
+                                           os.path.isfile(autostart.vapor_sh or "")))
+        add("carpeta de datos: %s" % autostart.data_dir)
+        add("marca 'autostart' (opcion activada): %s" % os.path.isfile(autostart.flag))
+        add("scripts de arranque encontrados: %s" % (", ".join(autostart.scripts) or "NINGUNO"))
+        for p in autostart.scripts:
+            try:
+                with open(p) as f:
+                    text = f.read()
+            except (IOError, OSError) as e:
+                add("  %s: no se pudo leer (%s)" % (p, e))
+                continue
+            lines = text.splitlines()
+            hooks = [i + 1 for i, l in enumerate(lines) if BEGIN in l]
+            launches = [i + 1 for i in _launch_lines([l + "\n" for l in lines])]
+            add("  %s: %d lineas, bloque Vapor en lineas %s (version actual: %s), "
+                "lineas que abren ES: %s" % (p, len(lines), hooks or "NINGUNA",
+                                             hook_is_current(text), launches or "NINGUNA"))
+        add("")
+        add("---- boot.log (ultimas lineas) ----")
+        try:
+            with open(os.path.join(autostart.data_dir, "boot.log")) as f:
+                add("".join(f.readlines()[-20:]).rstrip() or "(vacio)")
+        except (IOError, OSError):
+            add("(no existe: el bloque de arranque nunca se ejecuto)")
+    add("")
+    add("---- systemctl cat emulationstation ----")
+    add(_cmd_output(["systemctl", "cat", "emulationstation"]))
+    add("")
+    add("---- montajes ----")
+    try:
+        with open("/proc/mounts") as f:
+            add("".join(l for l in f if "/roms" in l or " / " in l).rstrip())
+    except (IOError, OSError):
+        pass
+    for p in (autostart.scripts if autostart is not None else ES_SCRIPTS)[:1]:
+        add("")
+        add("---- %s ----" % p)
+        try:
+            with open(p) as f:
+                for i, l in enumerate(f):
+                    add("%4d  %s" % (i + 1, l.rstrip("\n")))
+        except (IOError, OSError) as e:
+            add("(no se pudo leer: %s)" % e)
+    try:
+        with open(path, "w") as f:
+            f.write("\n".join(out) + "\n")
+        return True
+    except (IOError, OSError):
+        return False
 
 
 # ------------------------------------------------------------ silencio total

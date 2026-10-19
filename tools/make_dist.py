@@ -99,7 +99,10 @@ SILENCIO, VIDEOS Y ARRANQUE
   START > UI SETTINGS > GAME LOADING IMAGE MODE > NONE
   (o renombra la carpeta EASYROMS\\launchimages).
 - Si Vapor no se abre al encender: abre Vapor una vez desde Ports (se actualiza
-  solo) y revisa ports\\vapor\\data\\boot.log
+  solo) y APAGA LA CONSOLA DEL TODO (START > QUIT > SHUTDOWN SYSTEM). Pulsar el
+  boton de encendido un momento solo la pone en reposo, eso no es un arranque.
+  Si sigue sin abrirse, abre Vapor desde Ports y envia el archivo
+  ports\\vapor\\data\\diagnostico.txt
 
 
 USO RAPIDO

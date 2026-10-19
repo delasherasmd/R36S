@@ -180,6 +180,40 @@ class AutostartTest(unittest.TestCase):
         self.run_es()
         self.assertEqual(self.log(), ["splash-hidden", "VAPOR boot=1", "ES"])
 
+    def test_install_replaces_file_safely(self):
+        # ArkOS esta ejecutando emulationstation.sh mientras se modifica: hay que
+        # crear un archivo nuevo (otro inodo) y conservar los permisos
+        os.chmod(self.es, 0o755)
+        before = os.stat(self.es)
+        a = system.Autostart(self.vapor, self.data, scripts=[self.es])
+        ok, why = a.enable()
+        self.assertTrue(ok, why)
+        after = os.stat(self.es)
+        self.assertNotEqual(before.st_ino, after.st_ino)
+        self.assertEqual(after.st_mode & 0o7777, 0o755)
+        self.assertFalse(os.path.exists(self.es + ".vapor-new"))
+        with open(self.es + ".vapor-backup") as f:
+            self.assertEqual(f.read(), ES_SH)
+
+    def test_status_and_diagnostics(self):
+        a = system.Autostart(self.vapor, self.data, scripts=[self.es])
+        self.assertEqual(a.status(), "off")
+        a.enable()
+        self.assertEqual(a.status(), "waiting")
+        self.run_es()
+        self.assertEqual(a.status(), "ok")
+        self._clean_done()
+        self.run_es(VAPOR_RC="3")
+        self.assertEqual(a.status(), "failed")
+        diag = os.path.join(self.data, "diagnostico.txt")
+        self.assertTrue(system.write_diagnostics(diag, a, ["extra de prueba"]))
+        with open(diag) as f:
+            text = f.read()
+        for part in ("extra de prueba", "marca 'autostart' (opcion activada): True",
+                     "bloque Vapor en lineas [", "lineas que abren ES: [", "---- boot.log",
+                     "codigo 3)", "---- systemctl cat emulationstation", "./emulationstation"):
+            self.assertIn(part, text)
+
     def test_unsupported_without_es_script(self):
         a = system.Autostart(self.vapor, self.data, scripts=["/no/existe.sh"])
         self.assertFalse(a.supported)

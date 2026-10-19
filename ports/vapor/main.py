@@ -15,7 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-VERSION = "1.0.0"
+VERSION = "1.3.0"
 
 
 def parse_args(argv):
@@ -244,6 +244,18 @@ def main(argv=None):
         last = app.autostart.last_boot()
         if last:
             log("Ultimo arranque:", last)
+        # diagnostico del arranque automatico (en segundo plano)
+        import threading
+        from system import write_diagnostics
+        extra = ["Vapor %s, python %s, abierto %s" % (
+            VERSION, sys.version.split()[0],
+            "al encender (VAPOR_BOOT=1)" if boot else "desde Ports/terminal"),
+            "estado del arranque automatico: %s" % app.autostart.status()]
+        t = threading.Thread(target=write_diagnostics,
+                             args=(os.path.join(args.data, "diagnostico.txt"), app.autostart,
+                                   extra))
+        t.daemon = True
+        t.start()
         ls = LibraryScreen(app)
         app.push(ls)
         ls.apply_resume()

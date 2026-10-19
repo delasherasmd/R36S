@@ -155,7 +155,11 @@ class SettingsScreen(Screen):
             app.toast(T("autostart_off"))
         else:
             ok, why = a.enable()
-            app.toast(T("autostart_on") if ok else T("autostart_fail", why), 3500)
+            app.toast(T("autostart_on") if ok else T("autostart_fail", why), 5000)
+            if ok:
+                from system import write_diagnostics
+                write_diagnostics(a.data_dir + "/diagnostico.txt", a,
+                                  ["estado tras activar: %s" % a.status()])
 
     # --------------------------------------------------------------- valores
     def value(self, row):
@@ -204,11 +208,12 @@ class SettingsScreen(Screen):
             return T("now_playing", name) if name else T("songs_n", len(m.songs))
         if k == "autostart":
             a = app.autostart
-            last = a.last_boot() if a is not None else ""
-            if a is not None and a.enabled() and last and \
-                    ("desactivado" in last or ("codigo" in last and "codigo 0)" not in last)):
-                return T("autostart_failed")
-            return T("autostart_hint")
+            if a is None:
+                return ""
+            st = a.status()
+            if st == "ok":
+                return T("as_ok", a.last_boot()[:16])
+            return T("as_" + st)
         if k == "mute":
             return T("mute_sub")
         return ""
