@@ -91,6 +91,16 @@ PERSONALIZAR (START > Personalizar...)
   directo a EmulationStation y la opcion se desactiva sola.
 
 
+FECHA Y HORA
+------------
+START > Personalizar > FECHA Y HORA:
+- Zona horaria: elige tu pais PRIMERO (si esta mal, la hora se ve corrida).
+- Fecha y hora: A para cambiarla, izquierda/derecha elige el campo,
+  arriba/abajo lo cambia, A guarda.
+- Formato 24 h / 12 h, y poner en hora por WiFi (si tienes adaptador USB).
+Vale para toda la consola (tambien EmulationStation y los juegos).
+
+
 SILENCIO, VIDEOS Y ARRANQUE
 ---------------------------
 - Silenciar toda la consola (tambien los juegos): START > Silenciar consola.

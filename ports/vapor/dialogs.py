@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Dialogos: menu, lista con casillas, teclado en pantalla, confirmacion e info."""
+"""Dialogos: menu, lista con casillas, teclado en pantalla, confirmacion, info
+y fecha/hora."""
+import calendar
+import time
+
 import theme as C
 from app import Screen, smooth
-from strings import T
+from strings import T, long_date
 
 
 def _panel(g, x, y, w, h):
@@ -531,3 +535,115 @@ class ReorderDialog(ListDialog):
         if self.grabbed:
             return [("A", T("h_drop")), ("B", T("h_drop"))]
         return [("A", T("h_grab")), ("B", T("h_done"))]
+
+
+class DateTimeDialog(Screen):
+    """Cambiar fecha y hora: izquierda/derecha elige el campo, arriba/abajo lo
+    cambia (L1/R1 de 10 en 10) y A guarda. on_done(epoch) recibe la hora elegida
+    (hora local, segundos a 0)."""
+    modal = True
+    FIELDS = ("day", "month", "year", "hour", "minute")
+    YEARS = (2026, 2099)
+
+    def __init__(self, app, on_done, subtitle="", now=None):
+        Screen.__init__(self, app)
+        tm = time.localtime(now)
+        # si la consola perdio la hora (p. ej. 2019) se empieza al menos en 2026
+        self.v = {"day": tm.tm_mday, "month": tm.tm_mon,
+                  "year": max(self.YEARS[0], min(self.YEARS[1], tm.tm_year)),
+                  "hour": tm.tm_hour, "minute": tm.tm_min}
+        self._clamp_day()
+        self.sel = 0
+        self.on_done = on_done
+        self.subtitle = subtitle
+
+    def _days(self):
+        return calendar.monthrange(self.v["year"], self.v["month"])[1]
+
+    def _clamp_day(self):
+        self.v["day"] = min(self.v["day"], self._days())
+
+    def change(self, d):
+        f = self.FIELDS[self.sel]
+        v = self.v
+        if f == "year":
+            v["year"] = max(self.YEARS[0], min(self.YEARS[1], v["year"] + d))
+        elif f == "month":
+            v["month"] = (v["month"] - 1 + d) % 12 + 1
+        elif f == "day":
+            v["day"] = (v["day"] - 1 + d) % self._days() + 1
+        elif f == "hour":
+            v["hour"] = (v["hour"] + d) % 24
+        else:
+            v["minute"] = (v["minute"] + d) % 60
+        self._clamp_day()
+
+    def epoch(self):
+        v = self.v
+        return time.mktime((v["year"], v["month"], v["day"], v["hour"], v["minute"], 0,
+                            0, 0, -1))
+
+    def action(self, act):
+        n = len(self.FIELDS)
+        if act == "left":
+            self.sel = (self.sel - 1) % n
+        elif act == "right":
+            self.sel = (self.sel + 1) % n
+        elif act in ("up", "down", "l1", "r1"):
+            self.change({"up": 1, "down": -1, "r1": 10, "l1": -10}[act])
+        elif act in ("a", "start"):
+            t = self.epoch()
+            self.app.pop(self)
+            self.on_done(t)
+        elif act == "b":
+            self.app.pop(self)
+
+    def draw(self):
+        g = self.g
+        v = self.v
+        w = min(g.S(440), g.w - g.S(40))
+        h = g.S(232)
+        x = (g.w - w) // 2
+        y = max(g.S(12), (g.h - g.S(C.HINTBAR_H) - h) // 2)
+        _panel(g, x, y, w, h)
+        g.icon("clock", x + g.S(18), y + g.S(16), g.S(18), C.ACCENT)
+        g.text(T("dt_title"), x + g.S(44), y + g.S(14), 15, C.TEXT, bold=True,
+               max_w=w - g.S(60))
+        if self.subtitle:
+            g.text(self.subtitle, x + g.S(18), y + g.S(42), 11, C.TEXT2, max_w=w - g.S(36))
+        g.fill(x + g.S(12), y + g.S(64), w - g.S(24), 1, (255, 255, 255, 20))
+        # campos: DD / MM / AAAA    HH : MM
+        texts = ("%02d" % v["day"], "%02d" % v["month"], "%04d" % v["year"],
+                 "%02d" % v["hour"], "%02d" % v["minute"])
+        widths = [g.S(50), g.S(50), g.S(78), g.S(50), g.S(50)]
+        seps = [g.S(18), g.S(18), g.S(34), g.S(18)]
+        total = sum(widths) + sum(seps)
+        fx = x + (w - total) // 2
+        bh = g.S(48)
+        by = y + g.S(100)
+        labels = T("dt_fields")
+        for i, txt in enumerate(texts):
+            bw = widths[i]
+            focused = i == self.sel
+            g.round_rect(fx, by, bw, bh, g.S(8), C.ACCENT if focused else C.PANEL_HI)
+            g.text(txt, fx + bw // 2, by + bh // 2, 22, C.TEXT, bold=True, align="center",
+                   valign="middle")
+            g.text(labels[i], fx + bw // 2, by + bh + g.S(6), 9,
+                   C.TEXT if focused else C.TEXT3, bold=True, align="center")
+            if focused:
+                s = g.S(12)
+                g.icon("up", fx + (bw - s) // 2, by - s - g.S(4), s, C.TEXT)
+                g.icon("down", fx + (bw - s) // 2, by + bh + g.S(22), s, C.TEXT)
+            fx += bw
+            if i < len(seps):
+                sep = {1: "/", 0: "/", 3: ":"}.get(i, "")
+                if sep:
+                    g.text(sep, fx + seps[i] // 2, by + bh // 2, 20, C.TEXT3, bold=True,
+                           align="center", valign="middle")
+                fx += seps[i]
+        g.text(long_date(v["year"], v["month"], v["day"]), x + w // 2, y + h - g.S(30), 12,
+               C.ACCENT_SOFT, bold=True, align="center", max_w=w - g.S(36))
+
+    def hints(self):
+        return [("\u2190\u2192", T("h_field")), ("\u2191\u2193", T("h_change")),
+                ("A", T("h_save")), ("B", T("h_cancel"))]

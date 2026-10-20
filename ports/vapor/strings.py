@@ -154,6 +154,36 @@ ES = {
     "autostart_hint": "Para ir a EmulationStation: START › Salir",
     "h_change": "Cambiar",
     "h_close": "Cerrar",
+    "sec_clock": "FECHA Y HORA",
+    "opt_datetime": "Fecha y hora",
+    "opt_timezone": "Zona horaria",
+    "opt_clock_fmt": "Formato de hora",
+    "opt_clock_auto": "Poner en hora por WiFi",
+    "clock_auto_sub": "Al abrir Vapor, si hay internet",
+    "opt_clock_sync": "Sincronizar ahora",
+    "sync_sub": "Necesita internet (adaptador WiFi USB)",
+    "syncing": "Poniendo en hora por internet…",
+    "sync_ok": "Hora sincronizada: %s",
+    "sync_offline": "Sin internet: conecta el WiFi primero",
+    "sync_noresp": "No se pudo obtener la hora de internet",
+    "sync_noperm": "No se pudo cambiar la hora del sistema",
+    "time_set": "Hora cambiada: %s",
+    "time_fail": "No se pudo cambiar la hora (falta permiso de administrador)",
+    "tz_title": "Zona horaria",
+    "tz_sub": "Elígela antes de cambiar la hora",
+    "tz_set": "Zona horaria: %s",
+    "tz_fail": "No se pudo cambiar la zona horaria",
+    "tz_unknown": "Sin configurar",
+    "tz_fixed": "%s fija",
+    "dt_title": "Cambiar fecha y hora",
+    "dt_fields": ("DÍA", "MES", "AÑO", "HORA", "MIN"),
+    "clock_wrong": "La hora parece desconfigurada: pulsa A para cambiarla",
+    "clock_wrong_toast": "La hora parece desconfigurada: cámbiala en START › Personalizar",
+    "h_field": "Campo",
+    "h_save": "Guardar",
+    "weekdays": ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"),
+    "months": ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+               "septiembre", "octubre", "noviembre", "diciembre"),
     "no_systems": "No se encontró ningún sistema en %s",
     "menu": "Menú",
     "search": "Buscar juego…",
@@ -366,6 +396,36 @@ EN = {
     "autostart_hint": "To go to EmulationStation: START › Exit",
     "h_change": "Change",
     "h_close": "Close",
+    "sec_clock": "DATE & TIME",
+    "opt_datetime": "Date and time",
+    "opt_timezone": "Time zone",
+    "opt_clock_fmt": "Clock format",
+    "opt_clock_auto": "Set time over WiFi",
+    "clock_auto_sub": "When Vapor opens, if online",
+    "opt_clock_sync": "Sync now",
+    "sync_sub": "Needs internet (USB WiFi adapter)",
+    "syncing": "Getting the time from the internet…",
+    "sync_ok": "Time synced: %s",
+    "sync_offline": "No internet: connect WiFi first",
+    "sync_noresp": "Couldn't get the time from the internet",
+    "sync_noperm": "Couldn't change the system time",
+    "time_set": "Time changed: %s",
+    "time_fail": "Couldn't change the time (no admin permission)",
+    "tz_title": "Time zone",
+    "tz_sub": "Pick it before setting the time",
+    "tz_set": "Time zone: %s",
+    "tz_fail": "Couldn't change the time zone",
+    "tz_unknown": "Not set",
+    "tz_fixed": "%s fixed",
+    "dt_title": "Set date and time",
+    "dt_fields": ("DAY", "MONTH", "YEAR", "HOUR", "MIN"),
+    "clock_wrong": "The clock looks wrong: press A to set it",
+    "clock_wrong_toast": "The clock looks wrong: set it in START › Customize",
+    "h_field": "Field",
+    "h_save": "Save",
+    "weekdays": ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"),
+    "months": ("January", "February", "March", "April", "May", "June", "July", "August",
+               "September", "October", "November", "December"),
     "no_systems": "No systems found in %s",
     "menu": "Menu",
     "search": "Search game…",
@@ -449,3 +509,14 @@ def T(key, *args):
         except (TypeError, ValueError):
             return v
     return v
+
+
+def long_date(year, month, day):
+    """'Martes, 20 de octubre de 2026' / 'Tuesday, October 20, 2026'"""
+    import datetime
+    wd = datetime.date(year, month, day).weekday()
+    days, months = T("weekdays"), T("months")
+    if current_lang() == "en":
+        return "%s, %s %d, %d" % (days[wd], months[month - 1], day, year)
+    text = "%s, %d de %s de %d" % (days[wd], day, months[month - 1], year)
+    return text[:1].upper() + text[1:]

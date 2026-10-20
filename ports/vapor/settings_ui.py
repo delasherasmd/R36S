@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Panel 'Personalizar': colores, caratulas, brillo, musica y arranque.
+"""Panel 'Personalizar': colores, caratulas, brillo, musica, fecha y hora y arranque.
 
 Es un panel lateral sin oscurecer el fondo, asi los cambios de color se ven en
 vivo sobre la biblioteca."""
+import time
+
 import theme as C
 from app import Screen, smooth
-from strings import T, current_lang
+from dialogs import DateTimeDialog, ListDialog
+from strings import T, current_lang, long_date
 
 
 def apply_theme(store):
@@ -42,6 +45,12 @@ class SettingsScreen(Screen):
             {"kind": "music_on", "label": T("opt_music")},
             {"kind": "volume", "label": T("opt_volume")},
             {"kind": "next_song", "label": T("opt_next_song")},
+            {"kind": "header", "label": T("sec_clock")},
+            {"kind": "datetime", "label": T("opt_datetime")},
+            {"kind": "timezone", "label": T("opt_timezone")},
+            {"kind": "clock_24h", "label": T("opt_clock_fmt")},
+            {"kind": "clock_auto", "label": T("opt_clock_auto")},
+            {"kind": "clock_sync", "label": T("opt_clock_sync")},
             {"kind": "header", "label": T("sec_boot")},
             {"kind": "autostart", "label": T("opt_autostart")},
             {"kind": "reset", "label": T("opt_reset")},
@@ -104,6 +113,10 @@ class SettingsScreen(Screen):
         elif k == "mute":
             a = app.audio
             app.set_system_mute(not (a is not None and a.muted))
+        elif k == "clock_24h":
+            st.set("clock_24h", not st.get("clock_24h"))
+        elif k == "clock_auto":
+            st.set("clock_autosync", not st.get("clock_autosync"))
 
     def activate(self, row):
         k = row["kind"]
@@ -122,8 +135,23 @@ class SettingsScreen(Screen):
                     self.toggle_music()
                 else:
                     m.play_next()
-        elif k in ("autostart", "mute"):
+        elif k in ("autostart", "mute", "clock_24h", "clock_auto"):
             self.change(row, 1)
+        elif k == "datetime":
+            if self.app.clock is None:
+                self.app.toast(T("not_available"))
+                return
+            zone = self.app.clock.zone()
+            sub = "%s: %s" % (T("opt_timezone"), self.zone_text(zone) if zone
+                              else T("tz_unknown"))
+            self.app.push(DateTimeDialog(self.app, self.set_time, sub))
+        elif k == "timezone":
+            if self.app.clock is None:
+                self.app.toast(T("not_available"))
+                return
+            self.app.push(TimezoneDialog(self.app))
+        elif k == "clock_sync":
+            self.sync_now()
         elif k == "reset":
             st = self.app.store
             for key, val in (("theme", C.DEFAULT_THEME), ("accent", "auto"),
@@ -162,6 +190,31 @@ class SettingsScreen(Screen):
                 write_diagnostics(a.data_dir + "/diagnostico.txt", a,
                                   ["estado tras activar: %s" % a.status()])
 
+    # ------------------------------------------------------- fecha y hora
+    def zone_text(self, zone):
+        from system import zone_label
+        return zone_label(zone, current_lang(), T("tz_fixed"))
+
+    def set_time(self, epoch):
+        app = self.app
+        if app.clock.set_time(epoch):
+            app.toast(T("time_set", app.time_text()))
+        else:
+            app.toast(T("time_fail"), 5000)
+
+    def sync_now(self):
+        app = self.app
+        c = app.clock
+        if c is None:
+            app.toast(T("not_available"))
+        elif c.syncing:
+            app.toast(T("syncing"))
+        elif not c.online():
+            app.toast(T("sync_offline"), 4000)
+        else:
+            c.sync_async(lambda res: app.toast_later(sync_message(app, res)))
+            app.toast(T("syncing"), 8000)
+
     # --------------------------------------------------------------- valores
     def value(self, row):
         app = self.app
@@ -194,6 +247,17 @@ class SettingsScreen(Screen):
             if a is None or not a.available:
                 return T("not_available")
             return T("on") if a.muted else T("off")
+        if k == "datetime":
+            return app.time_text()
+        if k == "timezone":
+            if app.clock is None:
+                return T("not_available")
+            zone = app.clock.zone()
+            return self.zone_text(zone) if zone else T("tz_unknown")
+        if k == "clock_24h":
+            return "12 h" if st.get("clock_24h") is False else "24 h"
+        if k == "clock_auto":
+            return T("on") if st.get("clock_autosync") else T("off")
         return ""
 
     def subtitle(self, row):
@@ -217,6 +281,27 @@ class SettingsScreen(Screen):
             return T("as_" + st)
         if k == "mute":
             return T("mute_sub")
+        if k == "datetime":
+            c = app.clock
+            if c is not None and c.looks_wrong():
+                return T("clock_wrong")
+            tm = time.localtime()
+            return long_date(tm.tm_year, tm.tm_mon, tm.tm_mday)
+        if k == "timezone":
+            c = app.clock
+            if c is None or not c.zone():
+                return ""
+            from system import fmt_offset
+            return fmt_offset(time.localtime().tm_gmtoff)
+        if k == "clock_auto":
+            return T("clock_auto_sub")
+        if k == "clock_sync":
+            c = app.clock
+            if c is not None and c.syncing:
+                return T("syncing")
+            if c is not None and c.last_sync is not None:
+                return sync_message(app, c.last_sync)
+            return T("sync_sub")
         return ""
 
     # ----------------------------------------------------------------- dibujo
@@ -285,7 +370,8 @@ class SettingsScreen(Screen):
                    valign="middle", max_w=w - g.S(20))
         val = self.value(row)
         right = x + w - g.S(10)
-        if k in ("choice", "brightness", "volume", "music_on", "autostart", "mute") and val:
+        if k in ("choice", "brightness", "volume", "music_on", "autostart", "mute",
+                 "clock_24h", "clock_auto") and val:
             # flechas < valor >
             vw = g.text_w(val, 12, True)
             sw = 0
@@ -304,7 +390,13 @@ class SettingsScreen(Screen):
             g.text("›", right - g.S(6), cy, 14, arrow_col, bold=True, valign="middle")
             if k in ("brightness", "volume"):
                 self.draw_bar(row, x + g.S(10), y + h - g.S(6), w - g.S(20), focused)
-        elif k in ("next_song", "reset"):
+        elif k in ("datetime", "timezone") and val:
+            # valor + flecha: se abre un dialogo
+            g.text("›", right - g.S(6), cy, 14, C.TEXT if focused else C.TEXT3, bold=True,
+                   valign="middle")
+            g.text(val, right - g.S(14), cy, 12, C.TEXT, bold=True, align="right",
+                   valign="middle", max_w=w // 2 - g.S(20))
+        elif k in ("next_song", "reset", "clock_sync"):
             g.icon("play" if k == "next_song" else "refresh", right - g.S(14), cy - g.S(7),
                    g.S(14), C.TEXT if focused else C.TEXT2)
 
@@ -337,3 +429,52 @@ class SettingsScreen(Screen):
 
     def status(self):
         return ""
+
+
+def sync_message(app, res):
+    ok, key, _diff = res
+    return T("sync_ok", app.time_text()) if ok else T(key)
+
+
+class TimezoneDialog(ListDialog):
+    """Lista de zonas horarias con su diferencia con UTC; la actual con una marca."""
+    WIDTH = 420
+
+    def __init__(self, app):
+        ListDialog.__init__(self, app, T("tz_title"), T("tz_sub"))
+        self.zones = app.clock.zones(current_lang(), T("tz_fixed"))
+        self.current = app.clock.zone()
+        for i, z in enumerate(self.zones):
+            if z[0] == self.current:
+                self.sel = i
+                break
+        self.scroll = self._target_scroll()
+
+    def rows(self):
+        return self.zones
+
+    def draw_row(self, i, row, x, y, w, h, focused):
+        from system import fmt_offset
+        g = self.g
+        zone, label, off = row
+        if focused:
+            self.draw_focus(x, y, w, h)
+        if zone == self.current:
+            g.icon("check", x + g.S(10), y + (h - g.S(14)) // 2, g.S(14),
+                   C.TEXT if focused else C.ACCENT_SOFT)
+        g.text(label, x + g.S(32), y + h // 2, 13, C.TEXT, bold=zone == self.current,
+               valign="middle", max_w=w - g.S(120))
+        g.text(fmt_offset(off), x + w - g.S(14), y + h // 2, 12,
+               C.TEXT if focused else C.TEXT2, align="right", valign="middle")
+
+    def activate(self, i):
+        app = self.app
+        zone, label, _off = self.zones[i]
+        app.pop(self)
+        if app.clock.set_zone(zone):
+            app.toast(T("tz_set", label) + " · " + app.time_text())
+        else:
+            app.toast(T("tz_fail"), 4000)
+
+    def hints(self):
+        return [("A", T("h_select")), ("B", T("h_back"))]

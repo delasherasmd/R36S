@@ -41,6 +41,8 @@ imágenes y emuladores** que ya tienes y, al salir, vuelves a EmulationStation c
 - **Brillo de pantalla** propio, que funciona también en clones de la R36S donde el de EmulationStation no hace nada.
 - **Música de fondo** con tus canciones, en orden aleatorio.
 - **Silenciar la consola** por completo (también en los juegos) desde START o desde *Personalizar*.
+- **Fecha y hora**: cambiar la hora, la **zona horaria**, formato 12/24 h y ponerla en hora sola por WiFi
+  (en ArkOS no hay una opción a la vista para esto).
 - **Abrir Vapor al encender** la consola (opcional y reversible).
 - Español e inglés.
 
@@ -172,6 +174,8 @@ Con **← →** cambias cada opción y con **B** cierras (se guarda solo).
 | **Brillo** | Brillo de la pantalla (ver abajo) |
 | **Silenciar consola** | Quita todo el sonido, también en los juegos |
 | **Música de fondo / Volumen / Siguiente canción** | Tu música, en orden aleatorio |
+| **Fecha y hora / Zona horaria / Formato de hora** | La hora de la consola (ver abajo) |
+| **Poner en hora por WiFi / Sincronizar ahora** | La pone en hora por internet, si tienes WiFi |
 | **Abrir Vapor al encender** | Arrancar la consola directamente en Vapor |
 | **Restablecer colores** | Vuelve al tema Vapor |
 
@@ -196,6 +200,26 @@ Copia tus canciones (`.mp3`, `.ogg`, `.wav`, `.flac`, `.mod`…) en **`EASYROMS/
 Suenan en orden aleatorio mientras estás en Vapor (también al encender la consola si activas el arranque en Vapor)
 y se paran al abrir un juego. Vapor también usa la música que ya tengas para EmulationStation
 (`~/.emulationstation/music` y `/roms/bgmusic`).
+
+### Fecha y hora
+En ArkOS no hay una opción a la vista para cambiar la hora; Vapor la trae en **Personalizar → FECHA Y HORA**:
+
+1. **Zona horaria**: elige tu país (por ejemplo *Argentina*, *España*, *México (Centro)*…). Hazlo **primero**:
+   si la zona está mal, la hora se ve desplazada aunque el reloj esté bien.
+2. **Fecha y hora**: pulsa **A**, mueve con **← →** entre día, mes, año, hora y minutos, cambia con **↑ ↓**
+   (**L1/R1** de 10 en 10) y guarda con **A**.
+3. **Formato de hora**: 24 h o 12 h (AM/PM) para el reloj de arriba a la derecha.
+
+| Fecha y hora | Zona horaria |
+|---|---|
+| ![Fecha y hora](docs/screenshots/16_fecha_hora.png) | ![Zona horaria](docs/screenshots/17_zona_horaria.png) |
+
+La hora queda puesta para **toda la consola** (también EmulationStation y los juegos) y se guarda en el reloj de la
+placa para que dure al apagar. **Si tu R36S pierde la hora al apagarse**, Vapor recuerda la última hora buena y,
+si al encender el reloj vuelve a una fecha imposible, pone esa (y te avisa para que la ajustes).
+
+**Con WiFi** (la R36S necesita un adaptador WiFi USB): *Poner en hora por WiFi* (activado por defecto) la pone en
+hora sola cada vez que abres Vapor, y *Sincronizar ahora* lo hace en el momento.
 
 ### Abrir Vapor al encender
 Actívalo en **Personalizar → Abrir Vapor al encender**. Hay que hacerlo **en la consola**, con Vapor abierto desde
@@ -232,6 +256,8 @@ y se suma el tiempo jugado.
 - **No salen carátulas**: Vapor usa las imágenes de tus `gamelist.xml`. Si tus juegos no tienen imágenes,
   usa el *scraper* de EmulationStation (o Skraper en el PC). También detecta carpetas `images/`, `media/`,
   `boxart/`, `snap/`…
+- **No se puede cambiar la hora** (“falta permiso de administrador”): Vapor usa `sudo` como el resto de ArkOS.
+  Abre Vapor desde Ports y envía `ports/vapor/data/diagnostico.txt` (tiene una sección `---- hora ----`).
 - **Un juego no arranca desde Vapor**: prueba a abrirlo desde EmulationStation; Vapor usa el mismo comando.
 - **Sale un video o una imagen al abrir o al cerrar un juego**: es la “imagen de carga” de ArkOS (el script que
   corre al cerrar cada juego la muestra). En EmulationStation: **START → UI SETTINGS → GAME LOADING IMAGE MODE →

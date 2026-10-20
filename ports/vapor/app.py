@@ -109,6 +109,8 @@ class App(object):
         self.backlight = None
         self.autostart = None
         self.audio = None
+        self.clock = None
+        self.notes = []  # avisos que llegan desde otros hilos
 
     # ----------------------------------------------------------- pantallas
     def push(self, scr):
@@ -135,6 +137,18 @@ class App(object):
         self.toast_text = text
         self.toast_until = self.now + ms
         self.dirty = True
+
+    def toast_later(self, text, ms=3500):
+        """Aviso desde otro hilo: se muestra en el bucle principal."""
+        self.notes.append((text, ms))
+
+    def time_text(self, t=None):
+        """Hora para mostrar, en formato 24 h o 12 h segun la opcion."""
+        tm = time.localtime(t)
+        if self.store.get("clock_24h") is False:
+            return "%d:%02d %s" % (tm.tm_hour % 12 or 12, tm.tm_min,
+                                   "AM" if tm.tm_hour < 12 else "PM")
+        return "%02d:%02d" % (tm.tm_hour, tm.tm_min)
 
     def quit(self):
         self.result = None
@@ -272,7 +286,7 @@ class App(object):
             x -= g.S(4)
             x -= g.text("%d%%" % val, x, cy, 10, C.TEXT2, align="right", valign="middle")
             x -= g.S(10)
-        self.clock_text = time.strftime("%H:%M")
+        self.clock_text = self.time_text()
         x -= g.text(self.clock_text, x, cy, 12, C.TEXT, bold=True, align="right",
                     valign="middle")
         return x - g.S(10)
@@ -372,7 +386,9 @@ class App(object):
         if self.toast_text and self.now > self.toast_until:
             self.toast_text = ""
             self.dirty = True
-        if time.strftime("%H:%M") != self.clock_text:
+        if self.notes:
+            self.toast(*self.notes.pop(0))
+        if self.time_text() != self.clock_text:
             self.dirty = True
         if self.dirty:
             self.dirty = False

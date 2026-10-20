@@ -15,7 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 
 
 def parse_args(argv):
@@ -158,13 +158,13 @@ def main(argv=None):
     from inputmap import Input
     from app import App
     from views import LibraryScreen
-    from strings import set_lang
+    from strings import T, set_lang
     from settings_ui import apply_theme
     from music import MusicPlayer, music_dirs
-    from system import Autostart, Backlight, SystemAudio
+    from system import Autostart, Backlight, Clock, SystemAudio
     from library import load_es_settings
 
-    win = ren = g = inp = music = None
+    win = ren = g = inp = music = clock = None
     code = 0
     boot = os.environ.get("VAPOR_BOOT") == "1"
     try:
@@ -180,6 +180,12 @@ def main(argv=None):
             store.set("theme_v", 2)
             store.save()
         apply_theme(store)
+
+        # hora: si la consola la perdio al apagarse, vuelve a la ultima conocida
+        clock = Clock(os.path.join(args.data, "clock_saved"))
+        if clock.restore_if_reset():
+            log("Reloj: la consola habia perdido la hora, puesta la ultima conocida")
+        log("Hora: %s, zona %s" % (time.strftime("%Y-%m-%d %H:%M"), clock.zone() or "?"))
 
         # musica de fondo (empieza ya, mientras carga la biblioteca)
         es_settings = load_es_settings(os.path.join(args.home, ".emulationstation",
@@ -248,6 +254,7 @@ def main(argv=None):
         app.music = music
         app.backlight = backlight
         app.audio = audio
+        app.clock = clock
         app.autostart = Autostart(os.environ.get("VAPOR_SELF", ""), args.data)
         if app.autostart.needs_update():
             # bloque de arranque de una version anterior: se actualiza solo
@@ -271,6 +278,17 @@ def main(argv=None):
         ls = LibraryScreen(app)
         app.push(ls)
         ls.apply_resume()
+        if store.get("clock_autosync"):
+            def synced(res):
+                ok, key, diff = res
+                log("Hora por internet: %s %s (%+.0f s)" % ("ok" if ok else "no", key, diff))
+                if ok and abs(diff) >= 60:
+                    app.toast_later(T("sync_ok", app.time_text()))
+            clock.sync_async(synced, wait_online=60)
+        if clock.looks_wrong():
+            app.toast(T("clock_wrong_toast"), 6000)
+        else:
+            clock.save()
         app.draw()
         if boot:
             # Vapor llego a mostrarse en el arranque: todo bien
@@ -280,6 +298,7 @@ def main(argv=None):
         if result and result[0] == "launch":
             log("Lanzando:", result[2])
         store.save()
+        clock.save()
     except Exception as e:
         log("ERROR:", traceback.format_exc())
         code = 3  # error ya mostrado en pantalla

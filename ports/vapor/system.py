@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Integracion con el sistema: brillo de pantalla y arranque directo en Vapor."""
+"""Integracion con el sistema: brillo, arranque directo en Vapor, silencio y hora."""
 import os
 import re
 import subprocess
 import tempfile
+import threading
+import time
 
 # ----------------------------------------------------------------- brillo
 BACKLIGHT_DIR = "/sys/class/backlight"
@@ -429,6 +431,12 @@ def write_diagnostics(path, autostart, extra_lines=()):
             add("".join(l for l in f if "/roms" in l or " / " in l).rstrip())
     except (IOError, OSError):
         pass
+    add("")
+    add("---- hora ----")
+    add(_cmd_output(["timedatectl"]))
+    rtcs = sorted(n for n in os.listdir("/dev") if n.startswith("rtc")) \
+        if os.path.isdir("/dev") else []
+    add("reloj de la placa: %s" % (", ".join(rtcs) or "NINGUNO"))
     for p in (autostart.scripts if autostart is not None else ES_SCRIPTS)[:1]:
         add("")
         add("---- %s ----" % p)
@@ -571,3 +579,326 @@ class SystemAudio(object):
     def toggle(self):
         self.set_muted(not self.refresh())
         return self.muted
+
+
+# ------------------------------------------------------------- fecha y hora
+ZONEINFO = "/usr/share/zoneinfo"
+# Un reloj antes de esta fecha esta desconfigurado seguro (la consola perdio la
+# hora al apagarse): Vapor no existia todavia.
+CLOCK_FLOOR = 1767225600  # 2026-01-01 00:00 UTC
+
+# Zonas que se ofrecen (las que existan en la consola), con su nombre en espanol
+ZONES = (
+    ("America/Argentina/Buenos_Aires", "Argentina"),
+    ("America/La_Paz", "Bolivia"),
+    ("America/Sao_Paulo", "Brasil (São Paulo)"),
+    ("America/Santiago", "Chile"),
+    ("America/Bogota", "Colombia"),
+    ("America/Costa_Rica", "Costa Rica"),
+    ("America/Havana", "Cuba"),
+    ("America/Guayaquil", "Ecuador"),
+    ("America/El_Salvador", "El Salvador"),
+    ("Europe/Madrid", "España"),
+    ("Atlantic/Canary", "España (Canarias)"),
+    ("America/New_York", "EE. UU. (Este)"),
+    ("America/Chicago", "EE. UU. (Centro)"),
+    ("America/Denver", "EE. UU. (Montaña)"),
+    ("America/Los_Angeles", "EE. UU. (Pacífico)"),
+    ("America/Guatemala", "Guatemala"),
+    ("America/Tegucigalpa", "Honduras"),
+    ("America/Mexico_City", "México (Centro)"),
+    ("America/Cancun", "México (Cancún)"),
+    ("America/Tijuana", "México (Tijuana)"),
+    ("America/Managua", "Nicaragua"),
+    ("America/Panama", "Panamá"),
+    ("America/Asuncion", "Paraguay"),
+    ("America/Lima", "Perú"),
+    ("America/Puerto_Rico", "Puerto Rico"),
+    ("America/Santo_Domingo", "República Dominicana"),
+    ("America/Montevideo", "Uruguay"),
+    ("America/Caracas", "Venezuela"),
+    ("Europe/London", "Reino Unido"),
+    ("Europe/Lisbon", "Portugal"),
+    ("Europe/Paris", "Francia"),
+    ("Europe/Berlin", "Alemania"),
+    ("Europe/Rome", "Italia"),
+    ("Asia/Tokyo", "Japón"),
+    ("Asia/Shanghai", "China"),
+    ("Australia/Sydney", "Australia (Sídney)"),
+    ("Etc/UTC", "UTC"),
+)
+_UTC_ALIASES = ("UTC", "UCT", "Universal", "Zulu", "GMT", "GMT0", "GMT+0", "GMT-0",
+                "Greenwich", "Etc/UCT", "Etc/Universal", "Etc/Zulu", "Etc/GMT", "Etc/GMT0",
+                "Etc/GMT+0", "Etc/GMT-0", "Etc/Greenwich")
+# zonas fijas por si el pais no esta en la lista (Etc/GMT+3 es UTC-3)
+FIXED_ZONES = tuple("Etc/GMT%s%d" % ("-" if h > 0 else "+", abs(h))
+                    for h in range(-12, 15) if h != 0)
+
+# Para poner la hora por internet se usa http y no https: con el reloj mal, los
+# certificados parecen caducados y la conexion segura falla.
+SYNC_URLS = ("http://clients3.google.com/generate_204",
+             "http://www.msftconnecttest.com/connecttest.txt",
+             "http://captive.apple.com/")
+
+
+def zone_offset(zone, when=None, zoneinfo=ZONEINFO):
+    """Diferencia con UTC (en segundos) de una zona horaria en un momento dado."""
+    old = os.environ.get("TZ")
+    try:
+        os.environ["TZ"] = ":" + os.path.join(zoneinfo, zone)
+        time.tzset()
+        return time.localtime(when).tm_gmtoff
+    finally:
+        if old is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = old
+        time.tzset()
+
+
+def fmt_offset(secs):
+    """3600 -> 'UTC+1', -10800 -> 'UTC-3', 19800 -> 'UTC+5:30'"""
+    if not secs:
+        return "UTC"
+    sign = "-" if secs < 0 else "+"
+    secs = abs(int(secs))
+    h, m = secs // 3600, secs % 3600 // 60
+    return "UTC%s%d%s" % (sign, h, ":%02d" % m if m else "")
+
+
+def canonical_zone(zone):
+    """Los distintos nombres de UTC cuentan como uno solo."""
+    return "Etc/UTC" if zone in _UTC_ALIASES else zone
+
+
+def zone_label(zone, lang="es", fixed_fmt="%s"):
+    zone = canonical_zone(zone)
+    if zone.startswith("Etc/GMT") and zone[7:]:
+        try:
+            return fixed_fmt % fmt_offset(-int(zone[7:]) * 3600)
+        except ValueError:
+            pass
+    if lang == "es":
+        for z, name in ZONES:
+            if z == zone:
+                return name
+    return zone.split("/")[-1].replace("_", " ")
+
+
+def http_time(urls=SYNC_URLS, timeout=4):
+    """Hora UTC (epoch) segun la cabecera Date de una web, o None."""
+    import email.utils
+    import urllib.error
+    import urllib.request
+    for url in urls:
+        t0 = time.time()
+        try:
+            req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "Vapor"})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                date = r.headers.get("Date")
+        except urllib.error.HTTPError as e:
+            date = e.headers.get("Date") if e.headers else None
+        except Exception:
+            continue
+        parsed = email.utils.parsedate_tz(date) if date else None
+        if parsed:
+            return email.utils.mktime_tz(parsed) + max(0.0, time.time() - t0) / 2.0
+    return None
+
+
+class Clock(object):
+    """Fecha, hora y zona horaria del sistema.
+
+    ArkOS no tiene una opcion para cambiar la hora y algunas R36S la pierden al
+    apagarse. La hora se cambia con 'date' y se guarda tambien en el reloj de la
+    placa ('hwclock'); la zona con 'timedatectl' (o enlazando /etc/localtime).
+    Con WiFi se puede poner en hora sola. Ademas Vapor recuerda la ultima hora
+    buena: si al encender el reloj vuelve a una fecha imposible, pone esa."""
+
+    def __init__(self, state_path, zoneinfo=ZONEINFO, localtime="/etc/localtime",
+                 timezone_file="/etc/timezone", rtc="/dev/rtc0", route="/proc/net/route",
+                 run=None, fetch=None):
+        self.state_path = state_path
+        self.zoneinfo = zoneinfo
+        self.localtime = localtime
+        self.timezone_file = timezone_file
+        self.rtc = rtc
+        self.route = route
+        self.run = run or _run_cmd
+        self.fetch = fetch or http_time
+        self.syncing = False
+        self.last_sync = None  # (ok, clave del mensaje, segundos corregidos)
+
+    # ---------------------------------------------------------------- zona
+    def zone(self):
+        """Zona actual ('America/Argentina/Buenos_Aires') o '' si no se sabe."""
+        return canonical_zone(self._zone())
+
+    def _zone(self):
+        if os.path.islink(self.localtime):
+            target = os.readlink(self.localtime)
+            if not os.path.isabs(target):
+                target = os.path.join(os.path.dirname(self.localtime), target)
+            target = os.path.normpath(target)
+            for base in (self.zoneinfo, os.path.realpath(self.zoneinfo)):
+                base = base.rstrip("/") + "/"
+                if target.startswith(base):
+                    return target[len(base):]
+            i = target.find("/zoneinfo/")
+            if i >= 0:
+                z = target[i + len("/zoneinfo/"):]
+                for pre in ("posix/", "right/"):
+                    if z.startswith(pre):
+                        z = z[len(pre):]
+                return z
+        try:
+            with open(self.timezone_file) as f:
+                z = f.read().strip()
+            if z and os.path.isfile(os.path.join(self.zoneinfo, z)):
+                return z
+        except (IOError, OSError):
+            pass
+        return ""
+
+    def _valid_zone(self, zone):
+        return bool(zone) and ".." not in zone.split("/") and \
+            os.path.isfile(os.path.join(self.zoneinfo, zone))
+
+    def zones(self, lang="es", fixed_fmt="%s"):
+        """[(zona, nombre, desfase en segundos)] de las zonas disponibles."""
+        import unicodedata
+
+        def key(item):
+            name = unicodedata.normalize("NFKD", item[1])
+            return "".join(c for c in name if not unicodedata.combining(c)).lower()
+
+        now = time.time()
+        named = [(z, zone_label(z, lang), zone_offset(z, now, self.zoneinfo))
+                 for z, _ in ZONES if self._valid_zone(z)]
+        named.sort(key=key)
+        fixed = [(z, zone_label(z, lang, fixed_fmt), zone_offset(z, now, self.zoneinfo))
+                 for z in FIXED_ZONES if self._valid_zone(z)]
+        fixed.sort(key=lambda it: it[2])
+        out = named + fixed
+        cur = self.zone()
+        if cur and self._valid_zone(cur) and cur not in [z for z, _n, _o in out]:
+            out.insert(0, (cur, zone_label(cur, lang, fixed_fmt),
+                           zone_offset(cur, now, self.zoneinfo)))
+        return out
+
+    def set_zone(self, zone):
+        if not self._valid_zone(zone):
+            return False
+        self.run(["timedatectl", "--no-ask-password", "set-timezone", zone])
+        if self.zone() != canonical_zone(zone):
+            self.run(["ln", "-sf", os.path.join(self.zoneinfo, zone), self.localtime])
+        ok = self.zone() == canonical_zone(zone)
+        if ok and os.path.isfile(self.timezone_file):
+            try:
+                with open(self.timezone_file) as f:
+                    stale = f.read().strip() != zone
+            except (IOError, OSError):
+                stale = True
+            if stale:
+                _sudo_write(self.timezone_file, zone + "\n")
+        time.tzset()  # la hora que muestra Vapor cambia ya
+        return ok
+
+    # ---------------------------------------------------------------- hora
+    def set_time(self, epoch):
+        """Pone el reloj del sistema en 'epoch' (segundos UTC)."""
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(int(round(epoch))))
+        if not self.run(["date", "-u", "-s", stamp]):
+            return False
+        if os.path.exists(self.rtc):
+            # tambien en el reloj de la placa, para que dure al apagar
+            self.run(["hwclock", "-w"])
+        self.save(epoch)
+        return True
+
+    def save(self, epoch=None):
+        """Recuerda la hora (solo si es creible)."""
+        t = time.time() if epoch is None else epoch
+        if t < CLOCK_FLOOR:
+            return
+        try:
+            with open(self.state_path, "w") as f:
+                f.write("%d\n" % int(t))
+        except (IOError, OSError):
+            pass
+
+    def saved(self):
+        try:
+            with open(self.state_path) as f:
+                return int(f.read().strip())
+        except (IOError, OSError, ValueError):
+            return None
+
+    @staticmethod
+    def looks_wrong(now=None):
+        return (time.time() if now is None else now) < CLOCK_FLOOR
+
+    def restore_if_reset(self):
+        """Si la consola perdio la hora al apagarse, pone la ultima conocida."""
+        if not self.looks_wrong():
+            return False
+        last = self.saved()
+        if last is None or last < CLOCK_FLOOR:
+            return False
+        return self.set_time(last)
+
+    # ------------------------------------------------------------ internet
+    def online(self):
+        """Hay una ruta por defecto (WiFi o red conectada)."""
+        try:
+            with open(self.route) as f:
+                next(f, None)
+                for line in f:
+                    p = line.split()
+                    if len(p) > 2 and p[1] == "00000000":
+                        return True
+        except (IOError, OSError):
+            pass
+        return False
+
+    def sync(self):
+        """Pone en hora por internet. Devuelve (ok, clave del mensaje, segundos corregidos)."""
+        if not self.online():
+            return (False, "sync_offline", 0)
+        t = self.fetch()
+        if t is None:
+            return (False, "sync_noresp", 0)
+        diff = t - time.time()
+        if abs(diff) < 2:
+            self.save()
+            return (True, "sync_ok", diff)
+        if not self.set_time(t):
+            return (False, "sync_noperm", diff)
+        return (True, "sync_ok", diff)
+
+    def sync_async(self, done=None, wait_online=0):
+        """Como sync() pero en segundo plano. Al encender, el WiFi tarda en
+        conectar: se espera hasta wait_online segundos."""
+        if self.syncing:
+            return False
+        self.syncing = True
+
+        def work():
+            res = (False, "sync_noresp", 0)
+            try:
+                end = time.monotonic() + wait_online
+                while not self.online() and time.monotonic() < end:
+                    time.sleep(3)
+                res = self.sync()
+            except Exception:
+                pass
+            finally:
+                self.last_sync = res
+                self.syncing = False
+            if done is not None:
+                done(res)
+
+        t = threading.Thread(target=work)
+        t.daemon = True
+        t.start()
+        return True

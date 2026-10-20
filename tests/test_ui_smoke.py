@@ -208,6 +208,82 @@ class UISmokeTest(unittest.TestCase):
         self.assertIs(self.app.top(), self.ls)
         theme.apply()
 
+    def test_date_time_and_zone(self):
+        from dialogs import DateTimeDialog
+        from settings_ui import SettingsScreen, TimezoneDialog
+
+        class FakeClock(object):
+            syncing = False
+            last_sync = None
+            cur = "Etc/UTC"
+            set_to = None
+
+            def zone(self):
+                return self.cur
+
+            def zones(self, lang, fixed):
+                return [("America/Argentina/Buenos_Aires", "Argentina", -10800),
+                        ("Etc/UTC", "UTC", 0), ("Europe/Madrid", "España", 7200)]
+
+            def set_zone(self, z):
+                self.cur = z
+                return True
+
+            def set_time(self, t):
+                self.set_to = t
+                return True
+
+            def looks_wrong(self):
+                return False
+
+            def online(self):
+                return False
+
+        clock = self.app.clock = FakeClock()
+        scr = SettingsScreen(self.app, self.ls)
+        self.app.push(scr)
+        scr.sel = [r["kind"] for r in scr.rows].index("timezone")
+        self.press("a")
+        dlg = self.app.top()
+        self.assertIsInstance(dlg, TimezoneDialog)
+        self.assertEqual(dlg.sel, 1)  # empieza en la zona actual
+        self.press("up", "a")
+        self.assertEqual(clock.cur, "America/Argentina/Buenos_Aires")
+        self.assertIs(self.app.top(), scr)
+        # fecha y hora: 31 de enero -> febrero se queda en 28 (29 en bisiesto)
+        scr.sel = [r["kind"] for r in scr.rows].index("datetime")
+        self.press("a")
+        dlg = self.app.top()
+        self.assertIsInstance(dlg, DateTimeDialog)
+        dlg.v.update(day=31, month=1, year=2027, hour=23, minute=58)
+        self.press("right", "up")  # mes + 1
+        self.assertEqual((dlg.v["day"], dlg.v["month"]), (28, 2))
+        self.press("right", "up")  # 2028
+        self.press("left", "left", "up")  # dia: 28 -> 29 (bisiesto)
+        self.assertEqual(dlg.v["day"], 29)
+        self.press("up")
+        self.assertEqual(dlg.v["day"], 1)  # vuelve a empezar
+        self.press("l1")  # de 10 en 10, dando la vuelta: 1 -> 20
+        self.assertEqual(dlg.v["day"], 20)
+        self.press("left", "down")  # izquierda desde DIA va a MIN: 58 -> 57
+        self.press("left", "up", "up", "up")  # hora: 23 -> 2
+        self.assertEqual(dlg.v, {"day": 20, "month": 2, "year": 2028, "hour": 2,
+                                 "minute": 57})
+        self.press("a")
+        self.assertIs(self.app.top(), scr)
+        self.assertEqual(time.localtime(clock.set_to)[:6], (2028, 2, 20, 2, 57, 0))
+        # formato 12 h en la barra de arriba
+        scr.sel = [r["kind"] for r in scr.rows].index("clock_24h")
+        self.press("right")
+        self.assertFalse(self.store.get("clock_24h"))
+        self.assertRegex(self.app.time_text(), r"^\d{1,2}:\d\d [AP]M$")
+        # sincronizar sin internet avisa y no se queda colgado
+        scr.sel = [r["kind"] for r in scr.rows].index("clock_sync")
+        self.press("a")
+        self.assertIn("internet", self.app.toast_text.lower())
+        self.press("b")
+        self.assertIs(self.app.top(), self.ls)
+
     def test_all_screens_render(self):
         # recorre pestanas, menu, ayuda y vista detalles sin errores
         for _ in range(len(self.ls.tabs)):

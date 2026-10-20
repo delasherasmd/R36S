@@ -23,6 +23,8 @@ DEFAULT_SETTINGS = {
     "brightness": None,      # None = no tocar el brillo del sistema
     "music": True,
     "music_volume": 70,
+    "clock_24h": True,
+    "clock_autosync": True,  # poner en hora por internet al abrir Vapor
 }
 
 

@@ -104,6 +104,42 @@ def demo_lists(h):
     h.ls.refresh_all()
 
 
+def clock_shots(h, out, zone="America/Argentina/Buenos_Aires"):
+    """Fecha y hora: el reloj de verdad no se toca (los comandos no hacen nada)."""
+    import tempfile
+    from settings_ui import SettingsScreen
+    from system import ZONEINFO, Clock
+    tmp = tempfile.mkdtemp()
+    link = os.path.join(tmp, "localtime")
+    os.symlink(os.path.join(ZONEINFO, zone), link)
+    old_tz = os.environ.get("TZ")
+    os.environ["TZ"] = ":" + os.path.join(ZONEINFO, zone)
+    time.tzset()
+    try:
+        h.app.clock = Clock(os.path.join(tmp, "saved"), localtime=link,
+                            timezone_file=os.path.join(tmp, "tz"), route="/nonexistent",
+                            run=lambda cmd: True)
+        h.app.toast_text = ""
+        h.ls.tab = 0
+        scr = SettingsScreen(h.app, h.ls)
+        h.app.push(scr)
+        h.settle()
+        scr.sel = [r["kind"] for r in scr.rows].index("datetime")
+        h.press("a", "right")
+        h.shot(os.path.join(out, "16_fecha_hora.png"))
+        h.press("b")
+        scr.sel = [r["kind"] for r in scr.rows].index("timezone")
+        h.press("a")
+        h.shot(os.path.join(out, "17_zona_horaria.png"))
+        h.press("b", "b")
+    finally:
+        if old_tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = old_tz
+        time.tzset()
+
+
 def main():
     root = sys.argv[1] if len(sys.argv) > 1 else "/tmp/fakeark"
     out = sys.argv[2] if len(sys.argv) > 2 else "docs/screenshots"
@@ -145,6 +181,7 @@ def main():
     h.press("l1", "l1", "l1", "l1", "l1", "l1")
     h.shot(os.path.join(out, "14_vista_detalles.png"))
     h.press("select")
+    clock_shots(h, out)
     h.close()
     print("Capturas en", out)
 
