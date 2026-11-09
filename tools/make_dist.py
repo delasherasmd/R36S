@@ -126,6 +126,38 @@ Para desinstalar: borra ports\\Vapor.sh y la carpeta ports\\vapor.
 """
 
 
+STICK_OUT = os.path.join(ROOT, "dist", "AnularStick-R36S.zip")
+STICK_LEEME = """ANULAR STICK - la consola sigue funcionando con un stick averiado
+=================================================================
+
+Si un stick analogico se trabo (por ejemplo, marca "arriba" todo el tiempo),
+esto lo anula en TODA la consola: EmulationStation, Vapor, RetroArch y los
+demas emuladores. Los juegos que no usan ese stick vuelven a ser jugables.
+Los botones, la cruceta y el otro stick siguen funcionando.
+
+INSTALACION
+-----------
+1. Copia la carpeta "ports" de este ZIP a la tarjeta (particion EASYROMS),
+   igual que Vapor: quedan ports\\Anular stick.sh y ports\\anularstick
+2. Que stick se anula: ports\\anularstick\\stickfix.conf (por defecto
+   "izquierdo"). Puedes poner: izquierdo, derecho o ambos.
+3. En la consola abre Ports > Anular stick.
+   Pide que pulses cualquier boton en 20 segundos para confirmar que el
+   mando responde (si no, se deshace solo). Despues se reinicia
+   EmulationStation y ya funciona. Queda activo en cada encendido.
+
+Si en EmulationStation la lista no para de moverse por el stick trabado,
+abrelo desde Vapor (Vapor ignora el stick trabado): sistema Ports.
+
+QUITARLO
+--------
+Vuelve a abrir Ports > Anular stick (lo desactiva).
+Desde el PC: borra ports\\anularstick\\stickfix.conf y reinicia la consola.
+
+Registro: ports\\anularstick\\stickfix.log
+"""
+
+
 def crlf(text):
     return text.replace("\r\n", "\n").replace("\n", "\r\n")
 
@@ -164,6 +196,14 @@ def main():
         add_text(z, "extra/gamelist.xml", crlf(GAMELIST))
         add_text(z, "extra/entrada-gamelist.txt", crlf(GAMELIST_ENTRY))
     print("Creado", OUT, "(%d archivos)" % (len(files) + 3))
+    stick = [(os.path.join(ROOT, "ports", "Anular stick.sh"), "ports/Anular stick.sh")]
+    for n in ("stickfix.py", "stickfix.conf"):
+        stick.append((os.path.join(ROOT, "ports", "anularstick", n), "ports/anularstick/" + n))
+    with zipfile.ZipFile(STICK_OUT, "w") as z:
+        add_text(z, "LEEME.txt", crlf(STICK_LEEME))
+        for src, arc in stick:
+            add_file(z, src, arc)
+    print("Creado", STICK_OUT)
 
 
 if __name__ == "__main__":

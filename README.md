@@ -241,6 +241,24 @@ abre EmulationStation**, cuando ArkOS ya quitó la pantalla de carga y preparó 
 copia en `emulationstation.sh.vapor-backup`. Al desactivar la opción, el bloque se quita y el archivo queda como
 estaba. Si actualizas Vapor, el bloque se actualiza solo la próxima vez que abras Vapor desde Ports.
 
+## Extra: Anular stick (stick analógico averiado)
+
+Herramienta aparte de Vapor, para **toda la consola**. Si un stick se trabó (por ejemplo, marca “arriba” todo el
+tiempo), lo anula en EmulationStation, Vapor, RetroArch y los demás emuladores, así los juegos que no usan ese stick
+vuelven a ser jugables. Botones, cruceta y el otro stick siguen funcionando.
+
+- Descarga: [`dist/AnularStick-R36S.zip`](dist/AnularStick-R36S.zip). Copia su carpeta `ports` a EASYROMS.
+- Qué stick: `ports/anularstick/stickfix.conf` → `izquierdo` (por defecto), `derecho` o `ambos`.
+- En la consola: **Ports → Anular stick**. Pulsa cualquier botón en 20 s para confirmar (si no, se deshace solo);
+  se reinicia EmulationStation y queda activo en cada encendido. Para quitarlo, ábrelo otra vez.
+- Si la lista de EmulationStation no para de moverse, ábrelo desde **Vapor** (sistema Ports): Vapor ignora un stick
+  que ya está movido al abrirse.
+- Desde el PC, para quitarlo: borra `ports/anularstick/stickfix.conf` y reinicia.
+
+Por dentro: un servicio (`anular-stick.service`) arranca antes que EmulationStation, toma el mando real en exclusiva,
+crea un mando virtual idéntico (mismo nombre e identificadores, así ES y RetroArch usan la misma configuración) y le
+pasa todo menos los ejes del stick anulado. Si el servicio se detiene, el mando real vuelve tal cual.
+
 ## Cómo lanza los juegos
 
 Vapor lee `es_systems.cfg`, `es_settings.cfg` y los `gamelist.xml` igual que EmulationStation y construye

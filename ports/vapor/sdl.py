@@ -257,6 +257,8 @@ SDL_JoystickGetDeviceInstanceID = _fn(SDL, "SDL_JoystickGetDeviceInstanceID", c_
 SDL_JoystickClose = _fn(SDL, "SDL_JoystickClose", None, [c_void_p])
 SDL_JoystickName = _fn(SDL, "SDL_JoystickName", c_char_p, [c_void_p])
 SDL_JoystickInstanceID = _fn(SDL, "SDL_JoystickInstanceID", c_int, [c_void_p])
+SDL_JoystickNumAxes = _fn(SDL, "SDL_JoystickNumAxes", c_int, [c_void_p])
+SDL_JoystickGetAxis = _fn(SDL, "SDL_JoystickGetAxis", ctypes.c_int16, [c_void_p, c_int])
 SDL_JoystickGetGUID = _fn(SDL, "SDL_JoystickGetGUID", SDL_JoystickGUID, [c_void_p])
 SDL_JoystickGetGUIDString = _fn(SDL, "SDL_JoystickGetGUIDString", None,
                                 [SDL_JoystickGUID, c_char_p, c_int])

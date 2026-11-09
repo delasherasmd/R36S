@@ -58,6 +58,7 @@ class Binding(object):
         self.buttons = {}  # boton -> accion
         self.hats = {}     # (hat, valor) -> accion
         self.axes = {}     # (eje, signo) -> accion
+        self.sticks = {"left": set(), "right": set()}  # ejes de cada stick (es_input.cfg)
 
     def empty(self):
         return not (self.buttons or self.hats or self.axes)
@@ -82,10 +83,19 @@ def load_es_input(paths):
             inputs = sorted(ic.iter("input"),
                             key=lambda n: (n.get("name") or "").lower() == "hotkeyenable")
             for inp in inputs:
-                act = _ES_NAMES.get((inp.get("name") or "").lower())
+                name = (inp.get("name") or "").lower()
+                typ = inp.get("type")
+                if typ == "axis":
+                    for prefix, stick in (("leftanalog", "left"), ("joystick1", "left"),
+                                          ("rightanalog", "right"), ("joystick2", "right")):
+                        if name.startswith(prefix):
+                            try:
+                                b.sticks[stick].add(int(inp.get("id", "-1")))
+                            except ValueError:
+                                pass
+                act = _ES_NAMES.get(name)
                 if not act:
                     continue
-                typ = inp.get("type")
                 try:
                     iid = int(inp.get("id", "-1"))
                     val = int(inp.get("value", "1"))
@@ -151,6 +161,12 @@ class Input(object):
         self.axis_state = {}
         self.hat_state = {}
         self.pressed = set()
+        # sticks que no se usan (stick averiado, opcion de Personalizar)
+        self.ignore_sticks = set()
+        # ejes que ya estaban movidos al abrir el mando (stick trabado): no cuentan
+        # hasta que vuelven al centro
+        self.latched = set()
+        self.stuck = []  # (stick, direccion) detectados al abrir
 
     def open_all(self):
         for i in range(sdl.SDL_NumJoysticks()):
@@ -173,7 +189,19 @@ class Input(object):
             guid = buf.value.decode("ascii", "replace").lower()
         except Exception:
             guid = ""
-        self.joys[iid] = (js, self._binding_for(name, guid))
+        binding = self._binding_for(name, guid)
+        self.joys[iid] = (js, binding)
+        try:
+            n = sdl.SDL_JoystickNumAxes(js)
+        except Exception:
+            n = 0
+        for axis in range(max(0, n)):
+            v = sdl.SDL_JoystickGetAxis(js, axis)
+            if abs(v) > self.AXIS_DEAD:
+                self.latched.add((iid, axis))
+                stick = stick_of(binding, axis)
+                if stick:
+                    self.stuck.append((stick, direction_of(binding, axis, v)))
 
     def _binding_for(self, name, guid):
         for n, g, b in self.configs:
@@ -246,6 +274,12 @@ class Input(object):
         elif t == sdl.SDL_JOYAXISMOTION:
             ent = self.joys.get(ev.which)
             b = ent[1] if ent else None
+            if stick_of(b, ev.index) in self.ignore_sticks:
+                return out
+            if (ev.which, ev.index) in self.latched:
+                if abs(ev.value) < self.AXIS_DEAD:
+                    self.latched.discard((ev.which, ev.index))
+                return out
             sign = 0
             if ev.value > self.AXIS_DEAD:
                 sign = 1
@@ -303,6 +337,29 @@ class Input(object):
     def close_all(self):
         for iid in list(self.joys):
             self.close(iid)
+
+
+def stick_of(binding, axis):
+    """'left' / 'right' / None: a que stick pertenece un eje de SDL."""
+    if binding is not None:
+        for stick in ("left", "right"):
+            if axis in binding.sticks[stick]:
+                return stick
+    # sin es_input.cfg: SDL numera los ejes en orden (X, Y, RX, RY en la R36S)
+    return {0: "left", 1: "left", 2: "right", 3: "right"}.get(axis)
+
+
+def direction_of(binding, axis, value):
+    """'up' / 'down' / 'left' / 'right' hacia donde marca un eje."""
+    sign = 1 if value > 0 else -1
+    if binding is not None:
+        act = binding.axes.get((axis, sign))
+        if act in ("up", "down", "left", "right"):
+            return act
+    vertical = axis % 2 == 1
+    if vertical:
+        return "down" if sign > 0 else "up"
+    return "right" if sign > 0 else "left"
 
 
 def ctypes_buf(n):

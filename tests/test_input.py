@@ -21,6 +21,8 @@ ES_INPUT = """<?xml version="1.0"?>
     <input name="a" type="button" id="1" value="1"/>
     <input name="up" type="hat" id="0" value="1"/>
     <input name="leftanalogleft" type="axis" id="0" value="-1"/>
+    <input name="leftanalogup" type="axis" id="1" value="-1"/>
+    <input name="rightanalogup" type="axis" id="3" value="-1"/>
     <input name="pageup" type="button" id="4" value="1"/>
   </inputConfig>
 </inputList>
@@ -85,6 +87,22 @@ class InputTest(unittest.TestCase):
         self.assertEqual(b.buttons[7], "r2")
         self.assertEqual(b.buttons[12], "select")  # no se pisa lo configurado
         _ = inp_binding
+
+    def test_stuck_stick_is_ignored_until_centered(self):
+        inp = inputmap.Input([self.path])
+        b = inp._binding_for("GO-Super Gamepad", "abc")
+        inp.joys[7] = (None, b)
+        self.assertEqual(inputmap.stick_of(b, 1), "left")
+        self.assertEqual(inputmap.stick_of(b, 3), "right")
+        self.assertEqual(inputmap.direction_of(b, 1, -32000), "up")
+        # trabado arriba al abrir: no mueve nada hasta que vuelve al centro
+        inp.latched.add((7, 1))
+        self.assertEqual(inp.handle(Ev(sdl.SDL_JOYAXISMOTION, 7, 1, value=-32000), 0), [])
+        self.assertEqual(inp.handle(Ev(sdl.SDL_JOYAXISMOTION, 7, 1, value=0), 0), [])
+        self.assertEqual(inp.handle(Ev(sdl.SDL_JOYAXISMOTION, 7, 1, value=-32000), 0), ["up"])
+        inp.handle(Ev(sdl.SDL_JOYAXISMOTION, 7, 1, value=0), 0)
+        inp.ignore_sticks = {"left"}
+        self.assertEqual(inp.handle(Ev(sdl.SDL_JOYAXISMOTION, 7, 1, value=-32000), 0), [])
 
     def test_known_default_for_r36s(self):
         b = inputmap._default_binding("GO-Super Gamepad")
