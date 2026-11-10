@@ -413,13 +413,19 @@ def _on_signal(signum, frame):
 
 
 def run(io, mode, log, status_path=STATUS, device_name=None, ready=notify_ready,
-        hotkeys=restart_hotkey_daemon):
+        hotkeys=restart_hotkey_daemon, wait=0, sleep=time.sleep):
     """Hace el trabajo hasta que llegue una senal. Devuelve el codigo de salida."""
     restore(io)  # restos de una ejecucion anterior
     if mode not in STICKS:
         log("stick anulado: ninguno, nada que hacer")
         return 0
     path, info = find_gamepad(io, device_name)
+    # al encender, el mando puede aparecer unos segundos despues
+    for _ in range(int(wait)):
+        if path is not None:
+            break
+        sleep(1)
+        path, info = find_gamepad(io, device_name)
     if path is None:
         log("ERROR: no se encontro el mando de la consola en %s" % io.input_dir)
         return 1
@@ -543,10 +549,33 @@ def make_logger(path):
     return log
 
 
+def resolve_mode(config, user_config=None, wait=0, sleep=time.sleep, isdir=os.path.isdir):
+    """Que stick anular y donde dejar el registro: (modo, ruta del registro).
+
+    La copia buena de la configuracion es la de la tarjeta (user_config, la que se
+    edita desde el PC). Al encender, esa particion puede no estar montada todavia:
+    se espera hasta 'wait' segundos y, si no aparece, se usa la copia del sistema
+    (config). Si la carpeta esta pero el archivo no, es que se borro para quitarlo."""
+    if user_config:
+        d = os.path.dirname(user_config)
+        for _ in range(int(wait)):
+            if isdir(d):
+                break
+            sleep(1)
+        if isdir(d):
+            return read_mode(user_config), os.path.join(d, "stickfix.log")
+    if config:
+        return read_mode(config), os.path.join(os.path.dirname(config), "stickfix.log")
+    return "off", None
+
+
 def main(argv=None):
     import argparse
     ap = argparse.ArgumentParser(description="Anula un stick analogico averiado")
     ap.add_argument("--config", help="archivo con: izquierdo, derecho o ambos")
+    ap.add_argument("--user-config", help="la misma configuracion en la tarjeta (manda esta)")
+    ap.add_argument("--wait", type=int, default=0,
+                    help="segundos a esperar por la tarjeta y el mando al encender")
     ap.add_argument("--stick", choices=sorted(STICKS), help="sin usar archivo")
     ap.add_argument("--device", help="nombre del mando (por defecto, el integrado)")
     ap.add_argument("--log", help="registro (por defecto, stickfix.log junto a --config)")
@@ -556,20 +585,21 @@ def main(argv=None):
     args = ap.parse_args(argv)
     if args.confirm:
         return 0 if wait_confirm(Sys(), args.confirm) else 1
-    log_path = args.log or (os.path.join(os.path.dirname(args.config), "stickfix.log")
-                            if args.config else None)
-    log = make_logger(log_path)
     io = Sys()
     if args.restore:
+        log = make_logger(args.log)
         n = restore(io)
         if n:
             log("restaurados %d mandos apartados" % n)
         remove_status(STATUS)
         return 0
-    mode = args.stick or (read_mode(args.config) if args.config else "off")
     for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
         signal.signal(s, _on_signal)
-    return run(io, mode, log, device_name=args.device)
+    mode, log_path = resolve_mode(args.config, args.user_config, args.wait)
+    if args.stick:
+        mode = args.stick
+    log = make_logger(args.log or log_path)
+    return run(io, mode, log, device_name=args.device, wait=args.wait)
 
 
 if __name__ == "__main__":

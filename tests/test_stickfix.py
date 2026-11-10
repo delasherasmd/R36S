@@ -235,6 +235,48 @@ class StickfixTest(unittest.TestCase):
         self.assertEqual(S.restart_hotkey_daemon(proc, cmds.append), "reiniciado ogage.service")
         self.assertEqual(cmds, [["systemctl", "--no-block", "restart", "ogage.service"]])
 
+    def test_boot_waits_for_card_and_falls_back(self):
+        sys_conf = os.path.join(self.tmp, "opt", "stickfix.conf")
+        card = os.path.join(self.tmp, "roms", "ports", "anularstick")
+        os.makedirs(os.path.dirname(sys_conf))
+        with open(sys_conf, "w") as f:
+            f.write("izquierdo\n")
+        user = os.path.join(card, "stickfix.conf")
+        slept = []
+        # la tarjeta no se monta: se usa la copia del sistema tras esperar
+        mode, logp = S.resolve_mode(sys_conf, user, 5, slept.append)
+        self.assertEqual((mode, len(slept)), ("left", 5))
+        self.assertEqual(logp, os.path.join(self.tmp, "opt", "stickfix.log"))
+        # la tarjeta se monta a los 2 s: manda su archivo
+        os.makedirs(card)
+        with open(user, "w") as f:
+            f.write("derecho\n")
+        calls = []
+
+        def isdir(d):
+            calls.append(d)
+            return len(calls) > 2
+        self.assertEqual(S.resolve_mode(sys_conf, user, 20, lambda s: None, isdir)[0], "right")
+        self.assertEqual(len(calls), 4)
+        # borrado desde el PC: se quita aunque quede la copia del sistema
+        os.remove(user)
+        self.assertEqual(S.resolve_mode(sys_conf, user, 20, slept.append)[0], "off")
+
+    def test_waits_for_pad_at_boot(self):
+        hidden = os.path.join(self.tmp, "tarde")
+        os.remove(os.path.join(self.io.input_dir, "event10"))  # solo el integrado
+        os.rename(os.path.join(self.io.input_dir, "event2"), hidden)
+        ticks = []
+
+        def sleep(_s):
+            ticks.append(1)
+            if len(ticks) == 3:  # el mando aparece al tercer segundo
+                os.rename(hidden, os.path.join(self.io.input_dir, "event2"))
+        self.assertEqual(S.run(self.io, "left", self.logs.append, self.status,
+                               ready=lambda: None, hotkeys=lambda: "", wait=10, sleep=sleep), 0)
+        self.assertEqual(len(ticks), 3)
+        self.assertIn((S.UI_DEV_CREATE, 0), self.io.calls)
+
     def test_filter_events_alone(self):
         data = ev(S.EV_ABS, S.ABS_Y, -1800) + ev(S.EV_KEY, BTN_EAST, 0) + ev(S.EV_SYN, 0, 0)
         self.assertEqual(unpack_all(S.filter_events(data, (S.ABS_X, S.ABS_Y))),
