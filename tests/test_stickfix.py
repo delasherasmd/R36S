@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "ports", "anularstick"))
+sys.path.insert(0, os.path.join(HERE, "..", "ports", "vapor"))
 
 import stickfix as S  # noqa: E402
 
@@ -281,6 +281,73 @@ class StickfixTest(unittest.TestCase):
         data = ev(S.EV_ABS, S.ABS_Y, -1800) + ev(S.EV_KEY, BTN_EAST, 0) + ev(S.EV_SYN, 0, 0)
         self.assertEqual(unpack_all(S.filter_events(data, (S.ABS_X, S.ABS_Y))),
                          [(S.EV_KEY, BTN_EAST, 0), (S.EV_SYN, 0, 0)])
+
+
+class StickFixServiceTest(unittest.TestCase):
+    """Lo que hace Vapor en Personalizar > Mando (sin tocar el sistema de verdad)."""
+
+    def setUp(self):
+        import system
+        self.system = system
+        self.tmp = tempfile.mkdtemp()
+        self.app = os.path.join(self.tmp, "vapor")
+        self.data = os.path.join(self.app, "data")
+        os.makedirs(self.data)
+        open(os.path.join(self.app, "stickfix.py"), "w").close()
+        os.makedirs(os.path.join(self.tmp, "systemd"))
+        self.unit = os.path.join(self.tmp, "anular-stick.service")
+        self.status = os.path.join(self.tmp, "status.json")
+        self.cmds = []
+        self.daemon_ok = True
+
+        def run(cmd, timeout=10):
+            self.cmds.append(cmd)
+            if cmd[:2] == ["systemctl", "restart"] and self.daemon_ok:
+                with open(self.status, "w") as f:
+                    f.write('{"pid": %d}' % os.getpid())
+            if cmd[:2] == ["rm", "-f"]:
+                os.remove(cmd[2])
+            return True
+
+        def write(path, text):
+            with open(path, "w") as f:
+                f.write(text)
+            return True
+        self.sf = system.StickFix(self.app, self.data, python="/usr/bin/python3",
+                                  unit_path=self.unit, sys_dir=os.path.join(self.tmp, "opt"),
+                                  status_path=self.status,
+                                  systemd_dir=os.path.join(self.tmp, "systemd"),
+                                  run=run, write=write)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def test_enable_and_disable(self):
+        self.assertEqual(self.sf.status(), "off")
+        self.assertEqual(self.sf.apply("left"), (True, ""))
+        self.assertEqual(self.sf.mode(), "left")
+        self.assertEqual(self.sf.status(), "active")
+        with open(self.unit) as f:
+            text = f.read()
+        # la misma unidad que instala 'Anular stick' desde Ports, con la copia en /opt
+        self.assertTrue(text.startswith("# anular-stick v2\n"))
+        self.assertIn('--user-config "%s"' % self.sf.conf, text)
+        self.assertNotIn("ConditionPathExists", text)
+        self.assertIn(["systemctl", "enable", "anular-stick.service"], self.cmds)
+        self.assertEqual(S.read_mode(self.sf.conf), "left")
+        self.assertEqual(self.sf.apply("off"), (True, ""))
+        self.assertEqual(self.sf.mode(), "off")
+        self.assertFalse(os.path.exists(self.unit))
+        self.assertIn(["systemctl", "disable", "--now", "anular-stick.service"], self.cmds)
+
+    def test_daemon_that_does_not_start_is_reported(self):
+        self.daemon_ok = False
+        with open(self.sf.log_path, "w") as f:
+            f.write("[x] ERROR: no se encontro el mando de la consola\n")
+        ok, why = self.sf.apply("right")
+        self.assertFalse(ok)
+        self.assertIn("no se encontro el mando", why)
+        self.assertEqual(self.sf.status(), "failed")
 
 
 if __name__ == "__main__":

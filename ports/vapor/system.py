@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Integracion con el sistema: brillo, arranque directo en Vapor, silencio y hora."""
+import json
 import os
 import re
 import subprocess
@@ -902,3 +903,149 @@ class Clock(object):
         t.daemon = True
         t.start()
         return True
+
+
+# ------------------------------------------------------------ stick averiado
+STICK_MODES = ("off", "left", "right", "both")
+STICK_UNIT = "anular-stick.service"
+STICK_UNIT_VERSION = "# anular-stick v2"
+STICK_SYS_DIR = "/opt/anular-stick"
+_STICK_WORDS = {"left": "izquierdo", "right": "derecho", "both": "ambos"}
+STICK_CONF_TEXT = """# Stick analogico averiado que se anula en toda la consola.
+# Valores: izquierdo, derecho o ambos. Borra este archivo y reinicia para quitarlo.
+%s
+"""
+
+
+class StickFix(object):
+    """Anula un stick averiado en toda la consola (ES, Vapor y emuladores).
+
+    Instala el servicio anular-stick, el mismo que la herramienta 'Anular stick'
+    de Ports: arranca stickfix.py como root antes que EmulationStation, desde una
+    copia en /opt (al encender, EASYROMS se monta tarde). La eleccion se guarda en
+    data/stickfix.conf: borrarlo desde el PC y reiniciar lo quita."""
+
+    def __init__(self, app_dir, data_dir, python=None,
+                 unit_path="/etc/systemd/system/" + STICK_UNIT, sys_dir=STICK_SYS_DIR,
+                 status_path="/dev/shm/anular_stick.json", systemd_dir="/run/systemd/system",
+                 run=None, write=None):
+        import sys
+        self.script = os.path.join(app_dir, "stickfix.py")
+        self.conf = os.path.join(data_dir, "stickfix.conf")
+        self.log_path = os.path.join(data_dir, "stickfix.log")
+        self.python = python or sys.executable or "/usr/bin/python3"
+        self.unit_path = unit_path
+        self.sys_dir = sys_dir
+        self.status_path = status_path
+        self.systemd_dir = systemd_dir
+        self.run = run or _run_cmd
+        self.write = write or _sudo_write
+
+    @property
+    def supported(self):
+        return os.path.isdir(self.systemd_dir) and os.path.isfile(self.script)
+
+    def mode(self):
+        from stickfix import read_mode
+        return read_mode(self.conf)
+
+    def unit_text(self):
+        sd = self.sys_dir
+        return (STICK_UNIT_VERSION + "\n"
+                "[Unit]\n"
+                "Description=Anular stick analogico averiado\n"
+                "After=systemd-udevd.service systemd-modules-load.service\n"
+                "Before=emulationstation.service\n"
+                "StartLimitIntervalSec=0\n"
+                "\n"
+                "[Service]\n"
+                "Type=notify\n"
+                "ExecStartPre=-/sbin/modprobe uinput\n"
+                'ExecStart=%s %s/stickfix.py --config %s/stickfix.conf --user-config "%s" '
+                "--wait 20\n"
+                "ExecStopPost=%s %s/stickfix.py --restore\n"
+                "Restart=on-failure\n"
+                "RestartSec=5\n"
+                "TimeoutStartSec=60\n"
+                "\n"
+                "[Install]\n"
+                "WantedBy=multi-user.target\n") % (self.python, sd, sd, self.conf,
+                                                    self.python, sd)
+
+    def installed(self):
+        try:
+            with open(self.unit_path) as f:
+                return f.read() == self.unit_text()
+        except (IOError, OSError):
+            return False
+
+    def info(self):
+        """Lo que deja stickfix.py mientras funciona, o None."""
+        try:
+            with open(self.status_path) as f:
+                d = json.loads(f.read())
+            os.kill(int(d["pid"]), 0)
+            return d
+        except (IOError, OSError, ValueError, KeyError, TypeError):
+            return None
+
+    def status(self):
+        """off / active / failed / not_installed / unsupported"""
+        if self.mode() == "off":
+            return "off"
+        if not self.supported:
+            return "unsupported"
+        if not self.installed():
+            return "not_installed"
+        return "active" if self.info() is not None else "failed"
+
+    def last_error(self):
+        try:
+            with open(self.log_path) as f:
+                lines = [l for l in f.read().splitlines() if "ERROR" in l]
+            return lines[-1].split("] ", 1)[-1] if lines else ""
+        except (IOError, OSError):
+            return ""
+
+    def _remove_service(self):
+        if os.path.exists(self.unit_path) or os.path.isdir(self.sys_dir):
+            self.run(["systemctl", "disable", "--now", STICK_UNIT])
+            self.run(["rm", "-f", self.unit_path])
+            self.run(["rm", "-rf", self.sys_dir])
+            self.run(["systemctl", "daemon-reload"])
+
+    def apply(self, mode):
+        """Activa (left/right/both) o quita (off). Devuelve (ok, motivo)."""
+        if mode not in STICK_MODES:
+            return False, "?"
+        if mode == "off":
+            try:
+                os.remove(self.conf)
+            except OSError:
+                pass
+            self._remove_service()
+            return True, ""
+        if not self.supported:
+            return False, "sin systemd"
+        try:
+            with open(self.conf, "w") as f:
+                f.write(STICK_CONF_TEXT % _STICK_WORDS[mode])
+        except (IOError, OSError) as e:
+            return False, str(e)
+        ok = self.run(["mkdir", "-p", self.sys_dir]) and \
+            self.run(["install", "-m", "644", self.script, self.sys_dir + "/stickfix.py"]) and \
+            self.run(["install", "-m", "644", self.conf, self.sys_dir + "/stickfix.conf"])
+        if not ok:
+            return False, "sin permiso"
+        if not self.installed():
+            if not self.write(self.unit_path, self.unit_text()):
+                return False, "sin permiso"
+        self.run(["systemctl", "daemon-reload"])
+        self.run(["systemctl", "enable", STICK_UNIT])
+        # con Type=notify, restart vuelve cuando el mando virtual ya existe
+        self.run(["systemctl", "restart", STICK_UNIT], timeout=70)
+        for _ in range(30):
+            if self.info() is not None:
+                return True, ""
+            time.sleep(0.1)
+        return False, self.last_error() or "no arranco"

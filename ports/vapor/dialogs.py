@@ -208,10 +208,12 @@ class ChecklistDialog(ListDialog):
 class ConfirmDialog(Screen):
     modal = True
 
-    def __init__(self, app, text, on_yes, yes=None, no=None, default_yes=False, danger=False):
+    def __init__(self, app, text, on_yes, yes=None, no=None, default_yes=False, danger=False,
+                 on_no=None):
         Screen.__init__(self, app)
         self.text = text
         self.on_yes = on_yes
+        self.on_no = on_no
         self.yes = yes or T("yes")
         self.no = no or T("no")
         self.sel = 0 if default_yes else 1
@@ -224,8 +226,12 @@ class ConfirmDialog(Screen):
             self.app.pop(self)
             if self.sel == 0:
                 self.on_yes()
+            elif self.on_no:
+                self.on_no()
         elif act == "b":
             self.app.pop(self)
+            if self.on_no:
+                self.on_no()
 
     def draw(self):
         g = self.g
@@ -647,3 +653,60 @@ class DateTimeDialog(Screen):
     def hints(self):
         return [("\u2190\u2192", T("h_field")), ("\u2191\u2193", T("h_change")),
                 ("A", T("h_save")), ("B", T("h_cancel"))]
+
+
+class CountdownDialog(Screen):
+    """Confirmar un cambio arriesgado: A lo deja; B, o no pulsar nada en 'seconds'
+    segundos, lo deshace (on_undo)."""
+    modal = True
+
+    def __init__(self, app, title, text_fn, seconds, on_ok, on_undo):
+        Screen.__init__(self, app)
+        self.title = title
+        self.text_fn = text_fn  # segundos que quedan -> texto
+        self.end = app.now + seconds * 1000
+        self.on_ok = on_ok
+        self.on_undo = on_undo
+        self.left = seconds
+
+    def remaining(self):
+        return max(0, (self.end - self.app.now + 999) // 1000)
+
+    def update(self, now):
+        left = self.remaining()
+        if left <= 0:
+            self.app.pop(self)
+            self.on_undo()
+            return True
+        if left != self.left:
+            self.left = left
+            return True
+        return False
+
+    def action(self, act):
+        if act == "a":
+            self.app.pop(self)
+            self.on_ok()
+        elif act == "b":
+            self.app.pop(self)
+            self.on_undo()
+
+    def draw(self):
+        g = self.g
+        w = min(g.S(420), g.w - g.S(40))
+        lines = g.wrap(self.text_fn(self.remaining()), 13, w - g.S(40), max_lines=7)
+        lh = g.line_h(13)
+        h = g.S(64) + lh * len(lines) + g.S(56)
+        x = (g.w - w) // 2
+        y = (g.h - g.S(C.HINTBAR_H) - h) // 2
+        _panel(g, x, y, w, h)
+        g.text(self.title, x + g.S(20), y + g.S(16), 16, C.TEXT, bold=True)
+        g.fill(x + g.S(14), y + g.S(44), w - g.S(28), 1, (255, 255, 255, 20))
+        for i, l in enumerate(lines):
+            g.text(l, x + g.S(20), y + g.S(56) + i * lh, 13, C.TEXT)
+        num = "%d" % self.remaining()
+        g.text(num, x + w // 2, y + h - g.S(30), 22, C.ACCENT, bold=True, align="center",
+               valign="middle")
+
+    def hints(self):
+        return [("A", T("h_works")), ("B", T("h_undo"))]

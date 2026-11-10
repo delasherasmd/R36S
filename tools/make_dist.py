@@ -101,6 +101,14 @@ START > Personalizar > FECHA Y HORA:
 Vale para toda la consola (tambien EmulationStation y los juegos).
 
 
+STICK AVERIADO
+--------------
+Si un stick se trabo y se mueve solo: START > Personalizar > MANDO >
+Anular stick averiado. Vale para toda la consola (EmulationStation y juegos)
+y se mantiene al reiniciar. Para quitarlo: la misma opcion > No.
+Desde el PC: borra ports\\vapor\\data\\stickfix.conf y reinicia.
+
+
 SILENCIO, VIDEOS Y ARRANQUE
 ---------------------------
 - Silenciar toda la consola (tambien los juegos): START > Silenciar consola.
@@ -197,8 +205,11 @@ def main():
         add_text(z, "extra/entrada-gamelist.txt", crlf(GAMELIST_ENTRY))
     print("Creado", OUT, "(%d archivos)" % (len(files) + 3))
     stick = [(os.path.join(ROOT, "ports", "Anular stick.sh"), "ports/Anular stick.sh")]
-    for n in ("stickfix.py", "stickfix.conf"):
-        stick.append((os.path.join(ROOT, "ports", "anularstick", n), "ports/anularstick/" + n))
+    # el demonio es el mismo que usa Vapor (Personalizar > Mando)
+    stick.append((os.path.join(ROOT, "ports", "vapor", "stickfix.py"),
+                  "ports/anularstick/stickfix.py"))
+    stick.append((os.path.join(ROOT, "ports", "anularstick", "stickfix.conf"),
+                  "ports/anularstick/stickfix.conf"))
     with zipfile.ZipFile(STICK_OUT, "w") as z:
         add_text(z, "LEEME.txt", crlf(STICK_LEEME))
         for src, arc in stick:

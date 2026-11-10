@@ -85,5 +85,13 @@ done
 
 rm -f "$LAUNCH" "$LAUNCH.rom"
 printf "\033c" > /dev/tty1 2>/dev/null
+# Se anulo un stick desde Vapor: EmulationStation (abierto detras) aun cree que
+# esta pulsado, asi que se reinicia para que lea el mando de nuevo
+if [ -f /dev/shm/vapor_restart_es ]; then
+  rm -f /dev/shm/vapor_restart_es
+  if pgrep -x emulationstation > /dev/null 2>&1; then
+    sudo systemctl --no-block restart emulationstation
+  fi
+fi
 # 0 = salida normal; otro valor = Vapor fallo (queda en data/boot.log al arrancar)
 exit $RC

@@ -43,6 +43,7 @@ imágenes y emuladores** que ya tienes y, al salir, vuelves a EmulationStation c
 - **Silenciar la consola** por completo (también en los juegos) desde START o desde *Personalizar*.
 - **Fecha y hora**: cambiar la hora, la **zona horaria**, formato 12/24 h y ponerla en hora sola por WiFi
   (en ArkOS no hay una opción a la vista para esto).
+- **Anular un stick averiado** en toda la consola (Personalizar → MANDO), si uno se trabó y se mueve solo.
 - **Abrir Vapor al encender** la consola (opcional y reversible).
 - Español e inglés.
 
@@ -241,9 +242,17 @@ abre EmulationStation**, cuando ArkOS ya quitó la pantalla de carga y preparó 
 copia en `emulationstation.sh.vapor-backup`. Al desactivar la opción, el bloque se quita y el archivo queda como
 estaba. Si actualizas Vapor, el bloque se actualiza solo la próxima vez que abras Vapor desde Ports.
 
-## Extra: Anular stick (stick analógico averiado)
+## Anular un stick averiado
 
-Herramienta aparte de Vapor, para **toda la consola**. Si un stick se trabó (por ejemplo, marca “arriba” todo el
+En Vapor: **START → Personalizar → MANDO → Anular stick averiado** y elige *Izquierdo*, *Derecho* o *Los dos*.
+Pulsa **A** antes de 20 s para confirmar que el mando responde (si no, se deshace solo). Queda activo en cada
+encendido. Al salir de Vapor se reinicia EmulationStation para que deje de ver el stick trabado.
+Si al abrir Vapor un stick ya está marcando una dirección sin tocarlo, Vapor te ofrece anularlo directamente.
+
+![Anular stick](docs/screenshots/18_anular_stick.png)
+
+También existe como herramienta suelta, sin Vapor (es el mismo servicio: usa una u otra).
+Si un stick se trabó (por ejemplo, marca “arriba” todo el
 tiempo), lo anula en EmulationStation, Vapor, RetroArch y los demás emuladores, así los juegos que no usan ese stick
 vuelven a ser jugables. Botones, cruceta y el otro stick siguen funcionando.
 

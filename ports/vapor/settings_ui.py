@@ -7,7 +7,7 @@ import time
 
 import theme as C
 from app import Screen, smooth
-from dialogs import DateTimeDialog, ListDialog
+from dialogs import CountdownDialog, DateTimeDialog, ListDialog, MenuDialog
 from strings import T, current_lang, long_date
 
 
@@ -51,6 +51,8 @@ class SettingsScreen(Screen):
             {"kind": "clock_24h", "label": T("opt_clock_fmt")},
             {"kind": "clock_auto", "label": T("opt_clock_auto")},
             {"kind": "clock_sync", "label": T("opt_clock_sync")},
+            {"kind": "header", "label": T("sec_controls")},
+            {"kind": "stick", "label": T("opt_stick")},
             {"kind": "header", "label": T("sec_boot")},
             {"kind": "autostart", "label": T("opt_autostart")},
             {"kind": "reset", "label": T("opt_reset")},
@@ -117,6 +119,8 @@ class SettingsScreen(Screen):
             st.set("clock_24h", not st.get("clock_24h"))
         elif k == "clock_auto":
             st.set("clock_autosync", not st.get("clock_autosync"))
+        elif k == "stick":
+            open_stick_menu(app)
 
     def activate(self, row):
         k = row["kind"]
@@ -152,6 +156,8 @@ class SettingsScreen(Screen):
             self.app.push(TimezoneDialog(self.app))
         elif k == "clock_sync":
             self.sync_now()
+        elif k == "stick":
+            open_stick_menu(self.app)
         elif k == "reset":
             st = self.app.store
             for key, val in (("theme", C.DEFAULT_THEME), ("accent", "auto"),
@@ -258,6 +264,9 @@ class SettingsScreen(Screen):
             return "12 h" if st.get("clock_24h") is False else "24 h"
         if k == "clock_auto":
             return T("on") if st.get("clock_autosync") else T("off")
+        if k == "stick":
+            sf = app.stickfix
+            return T("stick_" + (sf.mode() if sf is not None else "off"))
         return ""
 
     def subtitle(self, row):
@@ -302,6 +311,14 @@ class SettingsScreen(Screen):
             if c is not None and c.last_sync is not None:
                 return sync_message(app, c.last_sync)
             return T("sync_sub")
+        if k == "stick":
+            sf = app.stickfix
+            if sf is None:
+                return T("st_off")
+            st = sf.status()
+            if st == "failed":
+                return T("st_failed", sf.last_error() or "stickfix.log")
+            return T("st_" + st)
         return ""
 
     # ----------------------------------------------------------------- dibujo
@@ -390,7 +407,7 @@ class SettingsScreen(Screen):
             g.text("›", right - g.S(6), cy, 14, arrow_col, bold=True, valign="middle")
             if k in ("brightness", "volume"):
                 self.draw_bar(row, x + g.S(10), y + h - g.S(6), w - g.S(20), focused)
-        elif k in ("datetime", "timezone") and val:
+        elif k in ("datetime", "timezone", "stick") and val:
             # valor + flecha: se abre un dialogo
             g.text("›", right - g.S(6), cy, 14, C.TEXT if focused else C.TEXT3, bold=True,
                    valign="middle")
@@ -478,3 +495,85 @@ class TimezoneDialog(ListDialog):
 
     def hints(self):
         return [("A", T("h_select")), ("B", T("h_back"))]
+
+
+# ------------------------------------------------------------ stick averiado
+RESTART_ES_FLAG = "/dev/shm/vapor_restart_es"
+_STICKS = {"off": set(), "left": {"left"}, "right": {"right"}, "both": {"left", "right"}}
+
+
+def open_stick_menu(app):
+    sf = app.stickfix
+    if sf is None:
+        app.toast(T("not_available"))
+        return
+    cur = sf.mode()
+    items = [{"label": T("stick_" + m), "icon": "check" if m == cur else None,
+              "fn": (lambda m=m: choose_stick(app, m))} for m in ("off", "left", "right", "both")]
+    dlg = MenuDialog(app, T("stick_menu_title"), items, T("stick_menu_sub"))
+    dlg.sel = ("off", "left", "right", "both").index(cur)
+    app.push(dlg)
+
+
+def _restart_es_later():
+    """EmulationStation (si estaba abierto detras) aun cree que el stick esta
+    pulsado: Vapor.sh lo reinicia al salir de Vapor."""
+    try:
+        open(RESTART_ES_FLAG, "w").close()
+    except (IOError, OSError):
+        pass
+
+
+def choose_stick(app, mode):
+    """Anula (o deja de anular) un stick en toda la consola, con confirmacion."""
+    sf = app.stickfix
+    prev = sf.mode()
+    if mode == prev:
+        return
+    app.inp.ignore_sticks = set(_STICKS[mode])
+    if mode == "off":
+        sf.apply("off")
+        _restart_es_later()
+        app.toast(T("stick_removed"), 3500)
+        return
+    # el cambio tarda un momento: se avisa antes
+    app.toast(T("stick_working"), 60000)
+    app.draw()
+    ok, why = sf.apply(mode)
+    if not ok:
+        sf.apply(prev)
+        app.toast(T("stick_fail", why), 6000)
+        return
+    name = T("stick_name_" + mode)
+
+    def keep():
+        _restart_es_later()
+        app.toast(T("stick_on", name), 5000)
+
+    def undo():
+        sf.apply(prev)
+        app.inp.ignore_sticks = set(_STICKS[prev])
+        app.toast(T("stick_undone"), 4000)
+
+    app.toast_text = ""
+    app.push(CountdownDialog(app, T("stick_confirm_title"),
+                             lambda left: T("stick_confirm_text", name, left), 20, keep, undo))
+
+
+def maybe_offer_stick_fix(app):
+    """Al abrir Vapor: si un stick ya marca algo sin tocarlo, ofrece anularlo."""
+    from dialogs import ConfirmDialog
+    sf = app.stickfix
+    stuck = app.inp.stuck
+    if not stuck or sf is None or not sf.supported or sf.mode() != "off" or \
+            app.store.get("stick_prompt_no"):
+        return
+    stick, direction = stuck[0]
+
+    def no():
+        app.store.set("stick_prompt_no", True)
+        app.store.save()
+    app.push(ConfirmDialog(app, T("stick_prompt", T("stick_name_" + stick),
+                                  T("dir_" + direction)),
+                           lambda: choose_stick(app, stick), yes=T("stick_yes"),
+                           no=T("not_now"), default_yes=True, on_no=no))

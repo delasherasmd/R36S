@@ -15,7 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 
 
 def parse_args(argv):
@@ -161,7 +161,7 @@ def main(argv=None):
     from strings import T, set_lang
     from settings_ui import apply_theme
     from music import MusicPlayer, music_dirs
-    from system import Autostart, Backlight, Clock, SystemAudio
+    from system import Autostart, Backlight, Clock, StickFix, SystemAudio
     from library import load_es_settings
 
     win = ren = g = inp = music = clock = None
@@ -255,6 +255,11 @@ def main(argv=None):
         app.backlight = backlight
         app.audio = audio
         app.clock = clock
+        app.stickfix = StickFix(HERE, args.data)
+        inp.ignore_sticks = {"left": {"left"}, "right": {"right"},
+                             "both": {"left", "right"}}.get(app.stickfix.mode(), set())
+        if inp.stuck:
+            log("Stick movido al abrir (trabado?): %s" % inp.stuck)
         app.autostart = Autostart(os.environ.get("VAPOR_SELF", ""), args.data)
         if app.autostart.needs_update():
             # bloque de arranque de una version anterior: se actualiza solo
@@ -285,6 +290,8 @@ def main(argv=None):
                 if ok and abs(diff) >= 60:
                     app.toast_later(T("sync_ok", app.time_text()))
             clock.sync_async(synced, wait_online=60)
+        from settings_ui import maybe_offer_stick_fix
+        maybe_offer_stick_fix(app)
         if clock.looks_wrong():
             app.toast(T("clock_wrong_toast"), 6000)
         else:

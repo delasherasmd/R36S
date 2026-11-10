@@ -284,6 +284,58 @@ class UISmokeTest(unittest.TestCase):
         self.press("b")
         self.assertIs(self.app.top(), self.ls)
 
+    def test_stick_fix_flow(self):
+        import settings_ui
+        from dialogs import CountdownDialog, MenuDialog
+        settings_ui.RESTART_ES_FLAG = os.path.join(self.tmp, "restart_es")
+
+        class FakeStickFix(object):
+            supported = True
+            cur = "off"
+            applied = []
+
+            def mode(self):
+                return self.cur
+
+            def status(self):
+                return "active" if self.cur != "off" else "off"
+
+            def apply(self, m):
+                self.applied.append(m)
+                self.cur = m
+                return True, ""
+        sf = self.app.stickfix = FakeStickFix()
+        scr = settings_ui.SettingsScreen(self.app, self.ls)
+        self.app.push(scr)
+        scr.sel = [r["kind"] for r in scr.rows].index("stick")
+        self.press("a")
+        self.assertIsInstance(self.app.top(), MenuDialog)
+        self.press("down", "a")  # Izquierdo
+        self.assertIsInstance(self.app.top(), CountdownDialog)
+        self.assertEqual(self.app.inp.ignore_sticks, {"left"})
+        self.press("a")  # funciona
+        self.assertIs(self.app.top(), scr)
+        self.assertEqual(sf.cur, "left")
+        self.assertTrue(os.path.exists(settings_ui.RESTART_ES_FLAG))
+        # si no se confirma, se deshace solo
+        self.press("a", "down", "a")  # Derecho
+        dlg = self.app.top()
+        self.assertIsInstance(dlg, CountdownDialog)
+        dlg.end = self.app.now - 1
+        self.press("down")
+        self.assertIs(self.app.top(), scr)
+        self.assertEqual(sf.cur, "left")
+        self.assertEqual(sf.applied, ["left", "right", "left"])
+        self.assertEqual(self.app.inp.ignore_sticks, {"left"})
+        # al abrir Vapor con un stick trabado se ofrece anularlo
+        sf.cur = "off"
+        self.press("b")
+        self.app.inp.stuck = [("left", "up")]
+        settings_ui.maybe_offer_stick_fix(self.app)
+        self.assertIn("arriba", self.app.top().text)
+        self.press("b")
+        self.assertTrue(self.store.get("stick_prompt_no"))
+
     def test_all_screens_render(self):
         # recorre pestanas, menu, ayuda y vista detalles sin errores
         for _ in range(len(self.ls.tabs)):

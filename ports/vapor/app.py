@@ -110,6 +110,7 @@ class App(object):
         self.autostart = None
         self.audio = None
         self.clock = None
+        self.stickfix = None
         self.notes = []  # avisos que llegan desde otros hilos
 
     # ----------------------------------------------------------- pantallas
